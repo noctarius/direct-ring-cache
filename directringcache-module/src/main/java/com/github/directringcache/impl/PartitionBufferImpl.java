@@ -40,16 +40,17 @@ class PartitionBufferImpl implements PartitionBuffer {
 	}
 
 	@Override
-	public byte[] readBytes(byte[] bytes) {
+	public long readBytes(byte[] bytes) {
 		return readBytes(bytes, 0, bytes.length);
 	}
 
 	@Override
-	public byte[] readBytes(byte[] bytes, int index, int length) {
-		for (int i = index; i < length; i++) {
+	public long readBytes(byte[] bytes, int index, int length) {
+		long readableBytes = Math.min(writerIndex - readerIndex, length);
+		for (int i = index; i < readableBytes; i++) {
 			bytes[i] = read();
 		}
-		return bytes;
+		return readableBytes;
 	}
 
 	@Override
@@ -125,21 +126,44 @@ class PartitionBufferImpl implements PartitionBuffer {
 	}
 
 	@Override
-	public void writeByteBuffer(ByteBuffer buffer) {
-		// TODO Auto-generated method stub
-
+	public void writeByteBuffer(ByteBuffer byteBuffer) {
+		byteBuffer.mark();
+		byteBuffer.position(0);
+		while (byteBuffer.hasRemaining()) {
+			put(byteBuffer.get());
+		}
+		byteBuffer.reset();
 	}
 
 	@Override
-	public void writeByteBuffer(ByteBuffer buffer, int index, int length) {
-		// TODO Auto-generated method stub
-
+	public void writeByteBuffer(ByteBuffer byteBuffer, int index, int length) {
+		byteBuffer.mark();
+		byteBuffer.position(index);
+		int position = 0;
+		while (position++ < length) {
+			put(byteBuffer.get());
+		}
+		byteBuffer.reset();
 	}
 
 	@Override
-	public void writeRingBuffer(ReadablePartitionBuffer buffer, long index, long length) {
-		// TODO Auto-generated method stub
+	public void writeRingBuffer(ReadablePartitionBuffer partitionBuffer) {
+		long readerIndex = partitionBuffer.readerIndex();
+		while (partitionBuffer.readable()) {
+			put(partitionBuffer.readByte());
+		}
+		partitionBuffer.readerIndex(readerIndex);
+	}
 
+	@Override
+	public void writeRingBuffer(ReadablePartitionBuffer partitionBuffer, long index, long length) {
+		long readerIndex = partitionBuffer.readerIndex();
+		partitionBuffer.readerIndex(index);
+		long position = 0;
+		while (position++ < length) {
+			put(partitionBuffer.readByte());
+		}
+		partitionBuffer.readerIndex(readerIndex);
 	}
 
 	@Override

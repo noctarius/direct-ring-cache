@@ -126,13 +126,19 @@ public final class Buffers {
 		}
 
 		public int getUsedSliceCount() {
-			// TODO Auto-generated method stub
-			return 0;
+			int usedSlices = 0;
+			for (Partition partition : partitions) {
+				usedSlices += partition.used();
+			}
+			return usedSlices;
 		}
 
 		public int getFreeSliceCount() {
-			// TODO Auto-generated method stub
-			return 0;
+			int available = 0;
+			for (Partition partition : partitions) {
+				available += partition.available();
+			}
+			return available;
 		}
 	}
 

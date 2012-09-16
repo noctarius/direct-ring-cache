@@ -8,9 +8,9 @@ public interface ReadablePartitionBuffer {
 
 	short readUnsignedByte();
 
-	byte[] readBytes(byte[] bytes);
+	long readBytes(byte[] bytes);
 
-	byte[] readBytes(byte[] bytes, int index, int length);
+	long readBytes(byte[] bytes, int index, int length);
 
 	char readChar();
 

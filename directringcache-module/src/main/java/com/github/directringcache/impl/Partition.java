@@ -22,6 +22,10 @@ class Partition {
 		return usedSlices.size() - usedSlices.cardinality();
 	}
 
+	public int used() {
+		return usedSlices.cardinality();
+	}
+
 	public int getSliceByteSize() {
 		return sliceByteSize;
 	}
