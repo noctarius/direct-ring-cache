@@ -2,7 +2,7 @@ package com.github.directringcache.impl;
 
 import com.github.directringcache.PartitionBuffer;
 
-final class BufferUtils {
+public final class BufferUtils {
 
 	private static final long KILOBYTE_BYTE_SIZE = 1024 * 1024;
 	private static final long MEGABYTE_BYTE_SIZE = KILOBYTE_BYTE_SIZE * 1024;
@@ -16,8 +16,7 @@ final class BufferUtils {
 		if (bigEndian) {
 			partitionBuffer.writeByte((byte) (value >> 8));
 			partitionBuffer.writeByte((byte) (value >> 0));
-		}
-		else {
+		} else {
 			partitionBuffer.writeByte((byte) (value >> 0));
 			partitionBuffer.writeByte((byte) (value >> 8));
 		}
@@ -28,8 +27,7 @@ final class BufferUtils {
 			byte b1 = partitionBuffer.readByte();
 			byte b0 = partitionBuffer.readByte();
 			return buildShort(b1, b0);
-		}
-		else {
+		} else {
 			byte b0 = partitionBuffer.readByte();
 			byte b1 = partitionBuffer.readByte();
 			return buildShort(b1, b0);
@@ -42,8 +40,7 @@ final class BufferUtils {
 			partitionBuffer.writeByte((byte) (value >> 16));
 			partitionBuffer.writeByte((byte) (value >> 8));
 			partitionBuffer.writeByte((byte) (value >> 0));
-		}
-		else {
+		} else {
 			partitionBuffer.writeByte((byte) (value >> 0));
 			partitionBuffer.writeByte((byte) (value >> 8));
 			partitionBuffer.writeByte((byte) (value >> 16));
@@ -58,8 +55,7 @@ final class BufferUtils {
 			byte b1 = partitionBuffer.readByte();
 			byte b0 = partitionBuffer.readByte();
 			return buildInt(b3, b2, b1, b0);
-		}
-		else {
+		} else {
 			byte b0 = partitionBuffer.readByte();
 			byte b1 = partitionBuffer.readByte();
 			byte b2 = partitionBuffer.readByte();
@@ -78,8 +74,7 @@ final class BufferUtils {
 			partitionBuffer.writeByte((byte) (value >> 16));
 			partitionBuffer.writeByte((byte) (value >> 8));
 			partitionBuffer.writeByte((byte) (value >> 0));
-		}
-		else {
+		} else {
 			partitionBuffer.writeByte((byte) (value >> 0));
 			partitionBuffer.writeByte((byte) (value >> 8));
 			partitionBuffer.writeByte((byte) (value >> 16));
@@ -102,8 +97,7 @@ final class BufferUtils {
 			byte b1 = partitionBuffer.readByte();
 			byte b0 = partitionBuffer.readByte();
 			return buildLong(b7, b6, b5, b4, b3, b2, b1, b0);
-		}
-		else {
+		} else {
 			byte b0 = partitionBuffer.readByte();
 			byte b1 = partitionBuffer.readByte();
 			byte b2 = partitionBuffer.readByte();
@@ -125,7 +119,11 @@ final class BufferUtils {
 		}
 	}
 
-	static long descriptorToByteSize(String descriptor) {
+	public static boolean isPowerOfTwo(long value) {
+		return value > 0 && ((~value) & 1) == 1;
+	}
+
+	public static long descriptorToByteSize(String descriptor) {
 		// Trim possible whitespaces
 		descriptor = descriptor.trim();
 
@@ -140,27 +138,27 @@ final class BufferUtils {
 			}
 		}
 
-		long value = Long.parseLong(descriptor.substring(0, descriptor.length() - 2));
+		double value = Double.parseDouble(descriptor.substring(0, descriptor.length() - 1));
 		switch (descriptorChar) {
-			case 'b':
-			case 'B':
-				return value;
+		case 'b':
+		case 'B':
+			return Double.valueOf(value).longValue();
 
-			case 'k':
-			case 'K':
-				return value * KILOBYTE_BYTE_SIZE;
+		case 'k':
+		case 'K':
+			return Double.valueOf(value * KILOBYTE_BYTE_SIZE).longValue();
 
-			case 'm':
-			case 'M':
-				return value * MEGABYTE_BYTE_SIZE;
+		case 'm':
+		case 'M':
+			return Double.valueOf(value * MEGABYTE_BYTE_SIZE).longValue();
 
-			case 'g':
-			case 'G':
-				return value * GIGABYTE_BYTE_SIZE;
+		case 'g':
+		case 'G':
+			return Double.valueOf(value * GIGABYTE_BYTE_SIZE).longValue();
 
-			case 't':
-			case 'T':
-				return value * TERABYTE_BYTE_SIZE;
+		case 't':
+		case 'T':
+			return Double.valueOf(value * TERABYTE_BYTE_SIZE).longValue();
 		}
 
 		throw new IllegalArgumentException("Descriptor character " + descriptorChar + " is unknown (only B, K, M, G, T allowed)");
@@ -171,11 +169,11 @@ final class BufferUtils {
 	}
 
 	private static int buildInt(byte b3, byte b2, byte b1, byte b0) {
-		return (int) ((((b3 & 0xFF) << 24) | ((b2 & 0xFF) << 16) | ((b1 & 0xFF) << 8) | ((b0 & 0xFF) << 0)));
+		return ((((b3 & 0xFF) << 24) | ((b2 & 0xFF) << 16) | ((b1 & 0xFF) << 8) | ((b0 & 0xFF) << 0)));
 	}
 
 	private static long buildLong(byte b7, byte b6, byte b5, byte b4, byte b3, byte b2, byte b1, byte b0) {
-		return (long) ((((b7 & 0xFF) << 56) | ((b6 & 0xFF) << 48) | ((b5 & 0xFF) << 40) | ((b4 & 0xFF) << 32) | ((b3 & 0xFF) << 24) | ((b2 & 0xFF) << 16)
+		return ((((b7 & 0xFF) << 56) | ((b6 & 0xFF) << 48) | ((b5 & 0xFF) << 40) | ((b4 & 0xFF) << 32) | ((b3 & 0xFF) << 24) | ((b2 & 0xFF) << 16)
 				| ((b1 & 0xFF) << 8) | ((b0 & 0xFF) << 0)));
 	}
 

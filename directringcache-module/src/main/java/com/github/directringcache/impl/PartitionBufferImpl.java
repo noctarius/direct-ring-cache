@@ -6,15 +6,14 @@ import java.util.Arrays;
 
 import com.github.directringcache.PartitionBuffer;
 import com.github.directringcache.ReadablePartitionBuffer;
-import com.github.directringcache.impl.Buffers.PartitionBufferPoolImpl;
-import com.github.directringcache.impl.Partition.Slice;
+import com.github.directringcache.spi.PartitionSlice;
 
 class PartitionBufferImpl implements PartitionBuffer {
 
 	private final PartitionBufferPoolImpl partitionBufferPool;
 
+	private volatile PartitionSlice[] slices;
 	private ByteOrder byteOrder;
-	private Slice[] slices;
 	private long writerIndex = 0;
 	private long readerIndex = 0;
 
@@ -219,7 +218,7 @@ class PartitionBufferImpl implements PartitionBuffer {
 	@Override
 	public long capacity() {
 		long capacity = 0;
-		for (Slice slice : slices) {
+		for (PartitionSlice slice : slices) {
 			capacity += slice != null ? slice.writerIndex() : 0L;
 		}
 		return capacity;
@@ -246,7 +245,7 @@ class PartitionBufferImpl implements PartitionBuffer {
 
 	@Override
 	public synchronized void free() {
-		for (Slice slice : slices) {
+		for (PartitionSlice slice : slices) {
 			partitionBufferPool.freeSlice(slice);
 		}
 		Arrays.fill(slices, null);
@@ -258,10 +257,11 @@ class PartitionBufferImpl implements PartitionBuffer {
 
 	private void put(long position, byte value) {
 		int sliceIndex = sliceIndex(position);
-		if (sliceIndex > slices.length) {
-			resize(sliceIndex);
+		if (sliceIndex >= slices.length) {
+			resize(sliceIndex + 1);
 		}
-		slices[sliceIndex].put((int) (position % sliceIndex), value);
+		int relativePosition = (int) (sliceIndex == 0 ? position : position % sliceIndex);
+		slices[sliceIndex].put(relativePosition, value);
 	}
 
 	private byte read() {
@@ -281,9 +281,11 @@ class PartitionBufferImpl implements PartitionBuffer {
 	}
 
 	private synchronized void resize(int newSize) {
-		Slice[] temp = new Slice[newSize];
-		System.arraycopy(slices, 0, temp, 0, slices.length);
-		temp[temp.length] = partitionBufferPool.requestSlice();
+		PartitionSlice[] temp = new PartitionSlice[newSize];
+		if (slices != null) {
+			System.arraycopy(slices, 0, temp, 0, slices.length);
+		}
+		temp[temp.length - 1] = partitionBufferPool.requestSlice();
 		slices = temp;
 	}
 

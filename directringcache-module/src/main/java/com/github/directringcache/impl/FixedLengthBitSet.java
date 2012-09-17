@@ -34,8 +34,7 @@ public class FixedLengthBitSet {
 	public void set(int bitIndex, boolean value) {
 		if (value) {
 			set(bitIndex);
-		}
-		else {
+		} else {
 			clear(bitIndex);
 		}
 	}
@@ -57,7 +56,7 @@ public class FixedLengthBitSet {
 	}
 
 	public boolean isEmpty() {
-		return cardinality() == 0;
+		return size() - cardinality() == 0;
 	}
 
 	public int cardinality() {

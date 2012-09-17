@@ -22,4 +22,6 @@ public interface PartitionBufferPool {
 
 	int getFreeSliceCount();
 
+	void close();
+
 }
