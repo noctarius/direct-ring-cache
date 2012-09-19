@@ -4,7 +4,7 @@ import com.github.directringcache.PartitionBuffer;
 
 public final class BufferUtils {
 
-	private static final long KILOBYTE_BYTE_SIZE = 1024 * 1024;
+	private static final long KILOBYTE_BYTE_SIZE = 1024;
 	private static final long MEGABYTE_BYTE_SIZE = KILOBYTE_BYTE_SIZE * 1024;
 	private static final long GIGABYTE_BYTE_SIZE = MEGABYTE_BYTE_SIZE * 1024;
 	private static final long TERABYTE_BYTE_SIZE = GIGABYTE_BYTE_SIZE * 1024;

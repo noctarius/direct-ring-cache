@@ -178,7 +178,7 @@ public class FixedLengthBitSet {
 	}
 
 	private int index(int bitIndex) {
-		return bitIndex >> 64;
+		return bitIndex / 64;
 	}
 
 }

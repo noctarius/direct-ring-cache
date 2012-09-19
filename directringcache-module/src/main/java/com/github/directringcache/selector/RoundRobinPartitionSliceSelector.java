@@ -19,11 +19,11 @@ public class RoundRobinPartitionSliceSelector implements PartitionSliceSelector 
 			int retry = 0;
 			while (retry < partitions.length) {
 				Partition partition = partitions[index++];
-				if (partition.available() > 0) {
-					return partition.get();
-				}
 				if (index == partitions.length) {
 					index = 0;
+				}
+				if (partition.available() > 0) {
+					return partition.get();
 				}
 				retry++;
 			}

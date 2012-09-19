@@ -273,7 +273,7 @@ class PartitionBufferImpl implements PartitionBuffer {
 			throw new IndexOutOfBoundsException("Position " + position + " is not readable");
 		}
 		int sliceIndex = sliceIndex(position);
-		return slices[sliceIndex].read((int) (position % sliceIndex));
+		return slices[sliceIndex].read((int) (sliceIndex == 0 ? position : position % sliceIndex));
 	}
 
 	private int sliceIndex(long position) {
