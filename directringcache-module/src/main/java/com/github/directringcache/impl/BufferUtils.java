@@ -36,15 +36,15 @@ public final class BufferUtils {
 
 	static void putInt(int value, PartitionBuffer partitionBuffer, boolean bigEndian) {
 		if (bigEndian) {
-			partitionBuffer.writeByte((byte) (value >> 24));
-			partitionBuffer.writeByte((byte) (value >> 16));
-			partitionBuffer.writeByte((byte) (value >> 8));
-			partitionBuffer.writeByte((byte) (value >> 0));
+			partitionBuffer.writeByte((byte) (value >>> 24));
+			partitionBuffer.writeByte((byte) (value >>> 16));
+			partitionBuffer.writeByte((byte) (value >>> 8));
+			partitionBuffer.writeByte((byte) (value >>> 0));
 		} else {
-			partitionBuffer.writeByte((byte) (value >> 0));
-			partitionBuffer.writeByte((byte) (value >> 8));
-			partitionBuffer.writeByte((byte) (value >> 16));
-			partitionBuffer.writeByte((byte) (value >> 24));
+			partitionBuffer.writeByte((byte) (value >>> 0));
+			partitionBuffer.writeByte((byte) (value >>> 8));
+			partitionBuffer.writeByte((byte) (value >>> 16));
+			partitionBuffer.writeByte((byte) (value >>> 24));
 		}
 	}
 

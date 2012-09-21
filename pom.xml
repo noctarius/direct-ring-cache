@@ -4,7 +4,7 @@
 
 	<groupId>com.github.directringcache</groupId>
 	<artifactId>directringcache-parent</artifactId>
-	<version>0.0.1</version>
+	<version>0.0.3</version>
 
 	<name>Direct-Ring-Cache: Reactor</name>
 	<packaging>pom</packaging>

@@ -260,7 +260,7 @@ class PartitionBufferImpl implements PartitionBuffer {
 		if (sliceIndex >= slices.length) {
 			resize(sliceIndex + 1);
 		}
-		int relativePosition = (int) (sliceIndex == 0 ? position : position % sliceIndex);
+		int relativePosition = (int) (sliceIndex == 0 ? position : position % sliceByteSize());
 		slices[sliceIndex].put(relativePosition, value);
 	}
 
@@ -273,7 +273,7 @@ class PartitionBufferImpl implements PartitionBuffer {
 			throw new IndexOutOfBoundsException("Position " + position + " is not readable");
 		}
 		int sliceIndex = sliceIndex(position);
-		return slices[sliceIndex].read((int) (sliceIndex == 0 ? position : position % sliceIndex));
+		return slices[sliceIndex].read((int) (sliceIndex == 0 ? position : position % sliceByteSize()));
 	}
 
 	private int sliceIndex(long position) {
