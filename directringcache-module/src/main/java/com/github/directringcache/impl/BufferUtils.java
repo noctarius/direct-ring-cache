@@ -114,7 +114,7 @@ public final class BufferUtils {
 		if (position < lowerBound) {
 			throw new IndexOutOfBoundsException("Given value " + name + " is smaller than lower bound " + lowerBound);
 		}
-		if (position > upperBound) {
+		if (position >= upperBound) {
 			throw new IndexOutOfBoundsException("Given value " + name + " is larger than upper bound " + upperBound);
 		}
 	}

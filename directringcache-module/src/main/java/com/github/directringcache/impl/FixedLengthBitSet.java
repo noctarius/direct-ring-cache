@@ -72,6 +72,7 @@ public class FixedLengthBitSet {
 	}
 
 	public int nextNotSet(int bitIndex) {
+		BufferUtils.rangeCheck(bitIndex, 0, bits, "bitIndex");
 		int index = index(bitIndex);
 		for (int i = index; i < words.length; i++) {
 			if (Long.bitCount(words[i]) == 64) {
@@ -79,6 +80,9 @@ public class FixedLengthBitSet {
 			}
 
 			for (int bit = 0; bit < 64; bit++) {
+				if (i * 64 + bit >= bits)
+					break;
+
 				if ((words[i] & (1L << bit)) == 0) {
 					return i * 64 + bit;
 				}
