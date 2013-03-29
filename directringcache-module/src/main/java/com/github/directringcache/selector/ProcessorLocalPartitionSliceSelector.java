@@ -2,9 +2,6 @@ package com.github.directringcache.selector;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Random;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import com.github.directringcache.spi.Partition;
 import com.github.directringcache.spi.PartitionSlice;
@@ -82,46 +79,6 @@ public class ProcessorLocalPartitionSliceSelector
         {
             assigned[partitionIndex] = -1;
         }
-    }
-
-    public static void main( String[] args )
-    {
-        ProcessorLocalPartitionSliceSelector selector = new ProcessorLocalPartitionSliceSelector();
-        final CpuAdapter cpuAdapter = selector.cpuAdapter;
-
-        ExecutorService service = Executors.newFixedThreadPool( 10 );
-        for ( int i = 0; i < 10; i++ )
-        {
-            service.execute( new Runnable()
-            {
-
-                private final Random random = new Random( -System.nanoTime() );
-
-                @Override
-                public void run()
-                {
-                    for ( int o = 0; o < 10; o++ )
-                    {
-                        int timeout = 500 + random.nextInt( 500 );
-                        try
-                        {
-                            Thread.sleep( timeout );
-                        }
-                        catch ( Exception e )
-                        {
-                        }
-
-                        long nanos = System.nanoTime();
-                        int processorId = cpuAdapter.getCurrentProcessorId();
-                        nanos = System.nanoTime() - nanos;
-
-                        System.out.println( "Thread " + Thread.currentThread() + " on cpu core " + processorId
-                            + " (calltime: " + nanos + "ns)" );
-                    }
-                }
-            } );
-        }
-        service.shutdown();
     }
 
     private CpuAdapter getCpuAdapterSPI()
