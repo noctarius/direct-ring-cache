@@ -1,34 +1,44 @@
 package com.github.directringcache.impl;
 
-import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicLongArray;
 
 public class FixedLengthBitSet {
 
 	private final int bits;
 
-	private final long[] words;
+	private final AtomicLongArray words;
 
 	public FixedLengthBitSet(int bits) {
 		this.bits = bits;
-		this.words = new long[bits % 64 == 0 ? bits / 64 : bits / 64 + 1];
+		this.words = new AtomicLongArray(bits % 64 == 0 ? bits / 64 : bits / 64 + 1);
 	}
 
 	public void flip(int bitIndex) {
 		BufferUtils.rangeCheck(bitIndex, 0, bits, "bitIndex");
 		int index = index(bitIndex);
-		words[index] ^= (1L << bitIndex);
+		long value = words.get(index);
+		long newValue = value ^ (1L << bitIndex);
+		while (!words.compareAndSet(index, value, newValue)) {
+			value = words.get(index);
+			newValue = value ^ (1L << bitIndex);
+		}
 	}
 
 	public boolean get(int bitIndex) {
 		BufferUtils.rangeCheck(bitIndex, 0, bits, "bitIndex");
 		int index = index(bitIndex);
-		return (words[index] & (1L << bitIndex)) != 0;
+		return (words.get(index) & (1L << bitIndex)) != 0;
 	}
 
 	public void set(int bitIndex) {
 		BufferUtils.rangeCheck(bitIndex, 0, bits, "bitIndex");
 		int index = index(bitIndex);
-		words[index] |= (1L << bitIndex);
+		long value = words.get(index);
+		long newValue = value | (1L << bitIndex);
+		while (!words.compareAndSet(index, value, newValue)) {
+			value = words.get(index);
+			newValue = value | (1L << bitIndex);
+		}
 	}
 
 	public void set(int bitIndex, boolean value) {
@@ -42,12 +52,17 @@ public class FixedLengthBitSet {
 	public void clear(int bitIndex) {
 		BufferUtils.rangeCheck(bitIndex, 0, bits, "bitIndex");
 		int index = index(bitIndex);
-		words[index] &= ~(1L << bitIndex);
+		long value = words.get(index);
+		long newValue = value & ~(1L << bitIndex);
+		while (!words.compareAndSet(index, value, newValue)) {
+			value = words.get(index);
+			newValue = value & ~(1L << bitIndex);
+		}
 	}
 
 	public void reset() {
-		for (int i = 0; i < words.length; i++) {
-			words[i] = 0;
+		for (int i = 0; i < words.length(); i++) {
+			words.set(i, 0);
 		}
 	}
 
@@ -61,8 +76,8 @@ public class FixedLengthBitSet {
 
 	public int cardinality() {
 		int count = 0;
-		for (int i = 0; i < words.length; i++) {
-			count += Long.bitCount(words[i]);
+		for (int i = 0; i < words.length(); i++) {
+			count += Long.bitCount(words.get(i));
 		}
 		return count;
 	}
@@ -74,8 +89,8 @@ public class FixedLengthBitSet {
 	public int nextNotSet(int bitIndex) {
 		BufferUtils.rangeCheck(bitIndex, 0, bits, "bitIndex");
 		int index = index(bitIndex);
-		for (int i = index; i < words.length; i++) {
-			if (Long.bitCount(words[i]) == 64) {
+		for (int i = index; i < words.length(); i++) {
+			if (Long.bitCount(words.get(i)) == 64) {
 				continue;
 			}
 
@@ -83,11 +98,16 @@ public class FixedLengthBitSet {
 				if (i * 64 + bit >= bits)
 					break;
 
-				if ((words[i] & (1L << bit)) == 0) {
+				if ((words.get(i) & (1L << bit)) == 0) {
 					return i * 64 + bit;
 				}
 			}
 		}
+
+		if (bitIndex != 0) {
+			return firstNotSet();
+		}
+
 		return -1;
 	}
 
@@ -97,13 +117,13 @@ public class FixedLengthBitSet {
 
 	public int nextSet(int bitIndex) {
 		int index = index(bitIndex);
-		for (int i = index; i < words.length; i++) {
-			if (Long.bitCount(words[i]) == 64) {
+		for (int i = index; i < words.length(); i++) {
+			if (Long.bitCount(words.get(i)) == 64) {
 				continue;
 			}
 
 			for (int bit = 0; bit < 64; bit++) {
-				if ((words[i] & (1L << bit)) == 1) {
+				if ((words.get(i) & (1L << bit)) == 1) {
 					return i * 64 + bit;
 				}
 			}
@@ -112,42 +132,62 @@ public class FixedLengthBitSet {
 	}
 
 	public void and(FixedLengthBitSet bitSet) {
-		if (words.length < bitSet.words.length) {
+		if (words.length() < bitSet.words.length()) {
 			throw new IndexOutOfBoundsException("Bit size of given bitSet is to large: " + bits + " < " + bitSet.bits);
 		}
 
-		for (int i = 0; i < bitSet.words.length; i++) {
-			words[i] &= bitSet.words[i];
+		for (int i = 0; i < bitSet.words.length(); i++) {
+			long value = words.get(i);
+			long newValue = value & bitSet.words.get(i);
+			while (words.compareAndSet(i, value, newValue)) {
+				value = words.get(i);
+				newValue = value & bitSet.words.get(i);
+			}
 		}
 	}
 
 	public void andNot(FixedLengthBitSet bitSet) {
-		if (words.length < bitSet.words.length) {
+		if (words.length() < bitSet.words.length()) {
 			throw new IndexOutOfBoundsException("Bit size of given bitSet is to large: " + bits + " < " + bitSet.bits);
 		}
 
-		for (int i = 0; i < bitSet.words.length; i++) {
-			words[i] &= ~bitSet.words[i];
+		for (int i = 0; i < bitSet.words.length(); i++) {
+			long value = words.get(i);
+			long newValue = value & ~bitSet.words.get(i);
+			while (words.compareAndSet(i, value, newValue)) {
+				value = words.get(i);
+				newValue = value & ~bitSet.words.get(i);
+			}
 		}
 	}
 
 	public void or(FixedLengthBitSet bitSet) {
-		if (words.length < bitSet.words.length) {
+		if (words.length() < bitSet.words.length()) {
 			throw new IndexOutOfBoundsException("Bit size of given bitSet is to large: " + bits + " < " + bitSet.bits);
 		}
 
-		for (int i = 0; i < bitSet.words.length; i++) {
-			words[i] |= bitSet.words[i];
+		for (int i = 0; i < bitSet.words.length(); i++) {
+			long value = words.get(i);
+			long newValue = value | bitSet.words.get(i);
+			while (words.compareAndSet(i, value, newValue)) {
+				value = words.get(i);
+				newValue = value | bitSet.words.get(i);
+			}
 		}
 	}
 
 	public void xor(FixedLengthBitSet bitSet) {
-		if (words.length < bitSet.words.length) {
+		if (words.length() < bitSet.words.length()) {
 			throw new IndexOutOfBoundsException("Bit size of given bitSet is to large: " + bits + " < " + bitSet.bits);
 		}
 
-		for (int i = 0; i < bitSet.words.length; i++) {
-			words[i] ^= bitSet.words[i];
+		for (int i = 0; i < bitSet.words.length(); i++) {
+			long value = words.get(i);
+			long newValue = value ^ bitSet.words.get(i);
+			while (words.compareAndSet(i, value, newValue)) {
+				value = words.get(i);
+				newValue = value ^ bitSet.words.get(i);
+			}
 		}
 	}
 
@@ -156,7 +196,7 @@ public class FixedLengthBitSet {
 		final int prime = 31;
 		int result = 1;
 		result = prime * result + bits;
-		result = prime * result + Arrays.hashCode(words);
+		result = prime * result + words.hashCode();
 		return result;
 	}
 
@@ -175,7 +215,7 @@ public class FixedLengthBitSet {
 		if (bits != other.bits) {
 			return false;
 		}
-		if (!Arrays.equals(words, other.words)) {
+		if (!words.equals(other.words)) {
 			return false;
 		}
 		return true;

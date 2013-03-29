@@ -21,4 +21,34 @@ public class FixedLengthBitSetTestCase {
 		assertEquals(-1, bitSet.nextNotSet(0));
 	}
 
+	@Test
+	public void testNextNotSet1() throws Exception {
+		FixedLengthBitSet bitSet = new FixedLengthBitSet(10);
+		for (int i = 0; i < 10; i++) {
+			int index = bitSet.nextNotSet(i);
+			bitSet.set(index);
+			assertEquals(index, i);
+			assertEquals(bitSet.cardinality(), i + 1);
+		}
+
+		bitSet.clear(6);
+		assertEquals(6, bitSet.nextNotSet(9));
+		assertEquals(6, bitSet.nextNotSet(0));
+	}
+
+	@Test
+	public void testNextNotSet2() throws Exception {
+		FixedLengthBitSet bitSet = new FixedLengthBitSet(129);
+		for (int i = 0; i < 129; i++) {
+			int index = bitSet.nextNotSet(i);
+			bitSet.set(index);
+			assertEquals(index, i);
+			assertEquals(bitSet.cardinality(), i + 1);
+		}
+
+		bitSet.clear(6);
+		assertEquals(6, bitSet.nextNotSet(128));
+		assertEquals(6, bitSet.nextNotSet(0));
+	}
+
 }

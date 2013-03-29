@@ -66,6 +66,9 @@ public class ByteBufferPartition implements Partition {
 
 		while (!index.compareAndSet(index.get(), possibleMatch)) {
 			possibleMatch = nextSlice();
+			if (possibleMatch == -1) {
+				return null;
+			}
 		}
 		synchronized (usedSlices) {
 			usedSlices.set(possibleMatch);
@@ -99,12 +102,7 @@ public class ByteBufferPartition implements Partition {
 		}
 
 		int index = this.index.get();
-		int pos = index == 0 ? -1 : usedSlices.nextNotSet(index + 1);
-		if (pos == -1) {
-			pos = usedSlices.firstNotSet();
-		}
-
-		return pos;
+		return index == 0 ? usedSlices.firstNotSet() : usedSlices.nextNotSet(index + 1);
 	}
 
 	public class ByteBufferPartitionSlice implements PartitionSlice {

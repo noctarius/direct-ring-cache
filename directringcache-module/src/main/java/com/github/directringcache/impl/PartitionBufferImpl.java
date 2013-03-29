@@ -12,7 +12,7 @@ class PartitionBufferImpl implements PartitionBuffer {
 
 	private final PartitionBufferPoolImpl partitionBufferPool;
 
-	private volatile PartitionSlice[] slices;
+	private volatile PartitionSlice[] slices = new PartitionSlice[0];
 	private ByteOrder byteOrder;
 	private long writerIndex = 0;
 	private long readerIndex = 0;
@@ -172,7 +172,7 @@ class PartitionBufferImpl implements PartitionBuffer {
 
 	@Override
 	public void writeDouble(double value) {
-		writeDouble(Double.doubleToLongBits(value));
+		writeLong(Double.doubleToLongBits(value));
 	}
 
 	@Override
@@ -286,7 +286,9 @@ class PartitionBufferImpl implements PartitionBuffer {
 			System.arraycopy(slices, 0, temp, 0, slices.length);
 		}
 		temp[temp.length - 1] = partitionBufferPool.requestSlice();
-		slices = temp;
+		if (temp[temp.length - 1] != null) {
+			slices = temp;
+		}
 	}
 
 }

@@ -7,6 +7,7 @@ import com.github.directringcache.spi.Partition;
 import com.github.directringcache.spi.PartitionFactory;
 import com.github.directringcache.spi.PartitionSlice;
 
+@SuppressWarnings("restriction")
 public class UnsafeBufferPartition implements Partition {
 
 	public static final PartitionFactory UNSAFE_PARTITION_FACTORY = new PartitionFactory() {
