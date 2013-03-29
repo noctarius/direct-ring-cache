@@ -1,49 +1,71 @@
 package com.github.directringcache.selector;
 
-import java.util.Random;
-
 import com.github.directringcache.spi.Partition;
 import com.github.directringcache.spi.PartitionSlice;
 import com.github.directringcache.spi.PartitionSliceSelector;
 
-public class ThreadLocalPartitionSliceSelector implements PartitionSliceSelector {
+public class ThreadLocalPartitionSliceSelector
+    implements PartitionSliceSelector
+{
 
-	private final ThreadLocal<Partition> partitionAssignment = new ThreadLocal<Partition>();
-	private final Random random = new Random(-System.currentTimeMillis());
+    private final ThreadLocal<Partition> partitionAssignment = new ThreadLocal<Partition>();
 
-	private volatile boolean[] assigned;
+    private volatile boolean[] assigned;
 
-	@Override
-	public PartitionSlice selectPartitionSlice(Partition[] partitions) {
-		Partition partition = partitionAssignment.get();
-		if (partition != null && partition.available() > 0) {
-			return partition.get();
-		}
+    @Override
+    public PartitionSlice selectPartitionSlice( Partition[] partitions )
+    {
+        Partition partition = partitionAssignment.get();
+        if ( partition != null && partition.available() > 0 )
+        {
+            return partition.get();
+        }
 
-		synchronized (this) {
-			if (assigned == null) {
-				assigned = new boolean[partitions.length];
-			}
+        synchronized ( this )
+        {
+            if ( assigned == null )
+            {
+                assigned = new boolean[partitions.length];
+            }
 
-			for (int i = 0; i < assigned.length; i++) {
-				if (!assigned[i]) {
-					assigned[i] = true;
-					partition = partitions[i];
-					partitionAssignment.set(partition);
-					PartitionSlice slice = partition.get();
-					if (slice != null) {
-						return slice;
-					}
-				}
-			}
+            for ( int index = 0; index < assigned.length; index++ )
+            {
+                if ( !assigned[index] )
+                {
+                    assigned[index] = true;
+                    partition = partitions[index];
+                    partitionAssignment.set( partition );
+                    PartitionSlice slice = partition.get();
+                    if ( slice != null )
+                    {
+                        return slice;
+                    }
+                }
+            }
 
-			int index = random.nextInt(partitions.length);
-			PartitionSlice slice = partitions[index].get();
-			if (slice != null) {
-				return slice;
-			}
-		}
+            for ( int index = 0; index < partitions.length; index++ )
+            {
+                if ( partitions[index].available() > 0 )
+                {
+                    PartitionSlice slice = partitions[index].get();
+                    if ( slice != null )
+                    {
+                        return slice;
+                    }
+                }
+            }
+        }
 
-		throw new RuntimeException("Could not retrieve a new partition slice");
-	}
+        throw new RuntimeException( "Could not retrieve a new partition slice" );
+    }
+
+    @Override
+    public void freePartitionSlice( Partition partition, int partitionIndex, PartitionSlice slice )
+    {
+        if ( partition.available() == 0 )
+        {
+            assigned[partitionIndex] = false;
+        }
+    }
+
 }

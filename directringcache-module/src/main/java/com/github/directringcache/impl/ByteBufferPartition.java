@@ -6,184 +6,238 @@ import java.util.concurrent.atomic.AtomicInteger;
 import com.github.directringcache.spi.Partition;
 import com.github.directringcache.spi.PartitionFactory;
 import com.github.directringcache.spi.PartitionSlice;
+import com.github.directringcache.spi.PartitionSliceSelector;
 
-public class ByteBufferPartition implements Partition {
+public class ByteBufferPartition
+    implements Partition
+{
 
-	public static final PartitionFactory DIRECT_BYTEBUFFER_PARTITION_FACTORY = new PartitionFactory() {
+    public static final PartitionFactory DIRECT_BYTEBUFFER_PARTITION_FACTORY = new PartitionFactory()
+    {
 
-		@Override
-		public Partition newPartition(int sliceByteSize, int slices) {
-			return new ByteBufferPartition(slices, sliceByteSize, true);
-		}
-	};
+        @Override
+        public Partition newPartition( int partitionIndex, int sliceByteSize, int slices )
+        {
+            return new ByteBufferPartition( partitionIndex, slices, sliceByteSize, true );
+        }
+    };
 
-	public static final PartitionFactory HEAP_BYTEBUFFER_PARTITION_FACTORY = new PartitionFactory() {
+    public static final PartitionFactory HEAP_BYTEBUFFER_PARTITION_FACTORY = new PartitionFactory()
+    {
 
-		@Override
-		public Partition newPartition(int sliceByteSize, int slices) {
-			return new ByteBufferPartition(slices, sliceByteSize, false);
-		}
-	};
+        @Override
+        public Partition newPartition( int partitionIndex, int sliceByteSize, int slices )
+        {
+            return new ByteBufferPartition( partitionIndex, slices, sliceByteSize, false );
+        }
+    };
 
-	private final ByteBuffer byteBuffer;
-	private final ByteBufferPartitionSlice[] slices;
-	private final int sliceByteSize;
-	private final FixedLengthBitSet usedSlices;
-	private final AtomicInteger index = new AtomicInteger(0);
+    private final int partitionIndex;
 
-	private ByteBufferPartition(int slices, int sliceByteSize, boolean directMemory) {
-		this.sliceByteSize = sliceByteSize;
-		this.usedSlices = new FixedLengthBitSet(slices);
-		this.slices = new ByteBufferPartitionSlice[slices];
-		this.byteBuffer = directMemory ? ByteBuffer.allocateDirect(sliceByteSize * slices) : ByteBuffer.allocate(sliceByteSize * slices);
+    private final ByteBuffer byteBuffer;
 
-		for (int i = 0; i < slices; i++) {
-			this.slices[i] = new ByteBufferPartitionSlice(i);
-		}
-	}
+    private final ByteBufferPartitionSlice[] slices;
 
-	@Override
-	public int available() {
-		return usedSlices.size() - usedSlices.cardinality();
-	}
+    private final int sliceByteSize;
 
-	@Override
-	public int used() {
-		return usedSlices.cardinality();
-	}
+    private final FixedLengthBitSet usedSlices;
 
-	@Override
-	public int getSliceByteSize() {
-		return sliceByteSize;
-	}
+    private final AtomicInteger index = new AtomicInteger( 0 );
 
-	@Override
-	public PartitionSlice get() {
-		int possibleMatch = nextSlice();
-		if (possibleMatch == -1) {
-			return null;
-		}
+    private ByteBufferPartition( int partitionIndex, int slices, int sliceByteSize, boolean directMemory )
+    {
+        this.partitionIndex = partitionIndex;
+        this.sliceByteSize = sliceByteSize;
+        this.usedSlices = new FixedLengthBitSet( slices );
+        this.slices = new ByteBufferPartitionSlice[slices];
+        this.byteBuffer =
+            directMemory ? ByteBuffer.allocateDirect( sliceByteSize * slices ) : ByteBuffer.allocate( sliceByteSize
+                * slices );
 
-		while (!index.compareAndSet(index.get(), possibleMatch)) {
-			possibleMatch = nextSlice();
-			if (possibleMatch == -1) {
-				return null;
-			}
-		}
-		synchronized (usedSlices) {
-			usedSlices.set(possibleMatch);
-		}
-		return slices[possibleMatch];
-	}
+        for ( int i = 0; i < slices; i++ )
+        {
+            this.slices[i] = new ByteBufferPartitionSlice( i );
+        }
+    }
 
-	@Override
-	public void free(PartitionSlice slice) {
-		if (!(slice instanceof ByteBufferPartitionSlice)) {
-			throw new IllegalArgumentException("Given slice cannot be handled by this PartitionBufferPool");
-		}
-		ByteBufferPartitionSlice partitionSlice = (ByteBufferPartitionSlice) slice;
-		if (partitionSlice.getPartition() != this) {
-			throw new IllegalArgumentException("Given slice cannot be handled by this PartitionBufferPool");
-		}
-		synchronized (usedSlices) {
-			usedSlices.clear(partitionSlice.index);
-		}
-		slice.clear();
-	}
+    @Override
+    public int available()
+    {
+        return usedSlices.size() - usedSlices.cardinality();
+    }
 
-	@Override
-	public void close() {
-		byteBuffer.clear();
-	}
+    @Override
+    public int used()
+    {
+        return usedSlices.cardinality();
+    }
 
-	private int nextSlice() {
-		if (usedSlices.isEmpty()) {
-			return -1;
-		}
+    @Override
+    public int getSliceByteSize()
+    {
+        return sliceByteSize;
+    }
 
-		int index = this.index.get();
-		return index == 0 ? usedSlices.firstNotSet() : usedSlices.nextNotSet(index + 1);
-	}
+    @Override
+    public PartitionSlice get()
+    {
+        int possibleMatch = nextSlice();
+        if ( possibleMatch == -1 )
+        {
+            return null;
+        }
 
-	public class ByteBufferPartitionSlice implements PartitionSlice {
+        while ( !index.compareAndSet( index.get(), possibleMatch ) )
+        {
+            possibleMatch = nextSlice();
+            if ( possibleMatch == -1 )
+            {
+                return null;
+            }
+        }
+        synchronized ( usedSlices )
+        {
+            usedSlices.set( possibleMatch );
+        }
+        return slices[possibleMatch];
+    }
 
-		private final int index;
-		private final int baseIndex;
-		private int writerIndex;
-		private int readerIndex;
+    @Override
+    public void free( PartitionSlice slice, PartitionSliceSelector partitionSliceSelector )
+    {
+        if ( !( slice instanceof ByteBufferPartitionSlice ) )
+        {
+            throw new IllegalArgumentException( "Given slice cannot be handled by this PartitionBufferPool" );
+        }
+        ByteBufferPartitionSlice partitionSlice = (ByteBufferPartitionSlice) slice;
+        if ( partitionSlice.getPartition() != this )
+        {
+            throw new IllegalArgumentException( "Given slice cannot be handled by this PartitionBufferPool" );
+        }
+        synchronized ( usedSlices )
+        {
+            usedSlices.clear( partitionSlice.index );
+            partitionSliceSelector.freePartitionSlice( this, partitionIndex, slice );
+        }
+        slice.clear();
+    }
 
-		private ByteBufferPartitionSlice(int index) {
-			this.index = index;
-			this.baseIndex = index * sliceByteSize;
-		}
+    @Override
+    public void close()
+    {
+        byteBuffer.clear();
+    }
 
-		@Override
-		public void clear() {
-			for (int i = 0; i < sliceByteSize; i++) {
-				byteBuffer.put(baseIndex + i, (byte) 0);
-			}
-			writerIndex = 0;
-			readerIndex = 0;
-		}
+    private int nextSlice()
+    {
+        if ( usedSlices.isEmpty() )
+        {
+            return -1;
+        }
 
-		@Override
-		public void put(byte value) {
-			put(writerIndex - baseIndex, value);
-		}
+        int index = this.index.get();
+        return index == 0 || index == usedSlices.size() - 1 ? usedSlices.firstNotSet()
+                        : usedSlices.nextNotSet( index + 1 );
+    }
 
-		@Override
-		public void put(int position, byte value) {
-			byteBuffer.put(baseIndex + position, value);
-			writerIndex++;
-		}
+    public class ByteBufferPartitionSlice
+        implements PartitionSlice
+    {
 
-		@Override
-		public byte read() {
-			return read(readerIndex - baseIndex);
-		}
+        private final int index;
 
-		@Override
-		public byte read(int position) {
-			readerIndex++;
-			return byteBuffer.get(baseIndex + position);
-		}
+        private final int baseIndex;
 
-		@Override
-		public int readableBytes() {
-			return writerIndex - readerIndex;
-		}
+        private int writerIndex;
 
-		@Override
-		public int writeableBytes() {
-			return sliceByteSize - writerIndex;
-		}
+        private int readerIndex;
 
-		@Override
-		public int writerIndex() {
-			return writerIndex;
-		}
+        private ByteBufferPartitionSlice( int index )
+        {
+            this.index = index;
+            this.baseIndex = index * sliceByteSize;
+        }
 
-		@Override
-		public int readerIndex() {
-			return readerIndex;
-		}
+        @Override
+        public void clear()
+        {
+            for ( int i = 0; i < sliceByteSize; i++ )
+            {
+                byteBuffer.put( baseIndex + i, (byte) 0 );
+            }
+            writerIndex = 0;
+            readerIndex = 0;
+        }
 
-		@Override
-		public void writerIndex(int writerIndex) {
-			BufferUtils.rangeCheck(writerIndex, 0, sliceByteSize, "writerIndex");
-			this.writerIndex = writerIndex;
-		}
+        @Override
+        public void put( byte value )
+        {
+            put( writerIndex - baseIndex, value );
+        }
 
-		@Override
-		public void readerIndex(int readerIndex) {
-			BufferUtils.rangeCheck(readerIndex, 0, sliceByteSize, "readerIndex");
-			this.readerIndex = readerIndex;
-		}
+        @Override
+        public void put( int position, byte value )
+        {
+            byteBuffer.put( baseIndex + position, value );
+            writerIndex++;
+        }
 
-		@Override
-		public Partition getPartition() {
-			return ByteBufferPartition.this;
-		}
-	}
+        @Override
+        public byte read()
+        {
+            return read( readerIndex - baseIndex );
+        }
+
+        @Override
+        public byte read( int position )
+        {
+            readerIndex++;
+            return byteBuffer.get( baseIndex + position );
+        }
+
+        @Override
+        public int readableBytes()
+        {
+            return writerIndex - readerIndex;
+        }
+
+        @Override
+        public int writeableBytes()
+        {
+            return sliceByteSize - writerIndex;
+        }
+
+        @Override
+        public int writerIndex()
+        {
+            return writerIndex;
+        }
+
+        @Override
+        public int readerIndex()
+        {
+            return readerIndex;
+        }
+
+        @Override
+        public void writerIndex( int writerIndex )
+        {
+            BufferUtils.rangeCheck( writerIndex, 0, sliceByteSize, "writerIndex" );
+            this.writerIndex = writerIndex;
+        }
+
+        @Override
+        public void readerIndex( int readerIndex )
+        {
+            BufferUtils.rangeCheck( readerIndex, 0, sliceByteSize, "readerIndex" );
+            this.readerIndex = readerIndex;
+        }
+
+        @Override
+        public Partition getPartition()
+        {
+            return ByteBufferPartition.this;
+        }
+    }
 
 }

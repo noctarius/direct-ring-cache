@@ -1,7 +1,8 @@
 package com.github.directringcache.spi;
 
-public interface PartitionFactory {
+public interface PartitionFactory
+{
 
-	Partition newPartition(int sliceByteSize, int slices);
+    Partition newPartition( int partitionIndex, int sliceByteSize, int slices );
 
 }

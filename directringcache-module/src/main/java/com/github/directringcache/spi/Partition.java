@@ -10,7 +10,7 @@ public interface Partition {
 
 	PartitionSlice get();
 
-	void free(PartitionSlice slice);
+	void free(PartitionSlice slice, PartitionSliceSelector partitionSliceSelector);
 
 	void close();
 
