@@ -8,7 +8,8 @@ import com.github.directringcache.PartitionBuffer;
 import com.github.directringcache.ReadablePartitionBuffer;
 import com.github.directringcache.spi.PartitionSlice;
 
-class PartitionBufferImpl implements PartitionBuffer
+class PartitionBufferImpl
+    implements PartitionBuffer
 {
 
     private final PartitionBufferPoolImpl partitionBufferPool;

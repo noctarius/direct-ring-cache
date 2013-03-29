@@ -1,35 +1,36 @@
 package com.github.directringcache;
 
-public interface ReadablePartitionBuffer {
+public interface ReadablePartitionBuffer
+{
 
-	boolean readable();
+    boolean readable();
 
-	byte readByte();
+    byte readByte();
 
-	short readUnsignedByte();
+    short readUnsignedByte();
 
-	long readBytes(byte[] bytes);
+    long readBytes( byte[] bytes );
 
-	long readBytes(byte[] bytes, int index, int length);
+    long readBytes( byte[] bytes, int index, int length );
 
-	char readChar();
+    char readChar();
 
-	double readDouble();
+    double readDouble();
 
-	float readFloat();
+    float readFloat();
 
-	long readLong();
+    long readLong();
 
-	short readShort();
+    short readShort();
 
-	int readUnsignedShort();
+    int readUnsignedShort();
 
-	int readInt();
+    int readInt();
 
-	long readUnsignedInt();
+    long readUnsignedInt();
 
-	long readerIndex();
+    long readerIndex();
 
-	void readerIndex(long readerIndex);
+    void readerIndex( long readerIndex );
 
 }

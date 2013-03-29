@@ -2,20 +2,22 @@ package com.github.directringcache;
 
 import java.nio.ByteOrder;
 
-public interface PartitionBuffer extends ReadablePartitionBuffer, WritablePartitionBuffer {
+public interface PartitionBuffer
+    extends ReadablePartitionBuffer, WritablePartitionBuffer
+{
 
-	long capacity();
+    long capacity();
 
-	long maxCapacity();
+    long maxCapacity();
 
-	int sliceByteSize();
+    int sliceByteSize();
 
-	int slices();
+    int slices();
 
-	void free();
+    void free();
 
-	ByteOrder byteOrder();
+    ByteOrder byteOrder();
 
-	void byteOrder(ByteOrder byteOrder);
+    void byteOrder( ByteOrder byteOrder );
 
 }

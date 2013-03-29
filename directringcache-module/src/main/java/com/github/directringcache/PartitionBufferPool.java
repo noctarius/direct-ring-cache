@@ -1,27 +1,28 @@
 package com.github.directringcache;
 
-public interface PartitionBufferPool {
+public interface PartitionBufferPool
+{
 
-	PartitionBuffer getPartitionBuffer();
+    PartitionBuffer getPartitionBuffer();
 
-	void freePartitionBuffer(PartitionBuffer partitionBuffer);
+    void freePartitionBuffer( PartitionBuffer partitionBuffer );
 
-	long getAllocatedMemory();
+    long getAllocatedMemory();
 
-	int getPartitionByteSize();
+    int getPartitionByteSize();
 
-	int getPartitionCount();
+    int getPartitionCount();
 
-	int getSliceCountPerPartition();
+    int getSliceCountPerPartition();
 
-	int getSliceCount();
+    int getSliceCount();
 
-	int getSliceByteSize();
+    int getSliceByteSize();
 
-	int getUsedSliceCount();
+    int getUsedSliceCount();
 
-	int getFreeSliceCount();
+    int getFreeSliceCount();
 
-	void close();
+    void close();
 
 }

@@ -4,10 +4,13 @@ import java.io.DataInputStream;
 
 import com.github.directringcache.PartitionBuffer;
 
-public class PartitionDataInputStream extends DataInputStream {
+public class PartitionDataInputStream
+    extends DataInputStream
+{
 
-	public PartitionDataInputStream(PartitionBuffer partitionBuffer) {
-		super(new PartitionInputStream(partitionBuffer));
-	}
+    public PartitionDataInputStream( PartitionBuffer partitionBuffer )
+    {
+        super( new PartitionInputStream( partitionBuffer ) );
+    }
 
 }
