@@ -17,9 +17,10 @@ public class UnsafeBufferPartition
     {
 
         @Override
-        public Partition newPartition( int partitionIndex, int sliceByteSize, int slices )
+        public Partition newPartition( int partitionIndex, int sliceByteSize, int slices,
+                                       PartitionSliceSelector partitionSliceSelector )
         {
-            return new UnsafeBufferPartition( partitionIndex, slices, sliceByteSize );
+            return new UnsafeBufferPartition( partitionIndex, slices, sliceByteSize, partitionSliceSelector );
         }
     };
 
@@ -57,6 +58,8 @@ public class UnsafeBufferPartition
 
     private final sun.misc.Unsafe unsafe = UnsafeUtil.getUnsafe();
 
+    private final PartitionSliceSelector partitionSliceSelector;
+
     private final int partitionIndex;
 
     private final long basePointer;
@@ -71,8 +74,10 @@ public class UnsafeBufferPartition
 
     private final AtomicInteger index = new AtomicInteger( 0 );
 
-    private UnsafeBufferPartition( int partitionIndex, int slices, int sliceByteSize )
+    private UnsafeBufferPartition( int partitionIndex, int slices, int sliceByteSize,
+                                   PartitionSliceSelector partitionSliceSelector )
     {
+        this.partitionSliceSelector = partitionSliceSelector;
         this.partitionIndex = partitionIndex;
         this.sliceByteSize = sliceByteSize;
         this.usedSlices = new FixedLengthBitSet( slices );
@@ -125,7 +130,7 @@ public class UnsafeBufferPartition
     }
 
     @Override
-    public void free( PartitionSlice slice, PartitionSliceSelector partitionSliceSelector )
+    public void free( PartitionSlice slice )
     {
         if ( !( slice instanceof UnsafePartitionSlice ) )
         {
@@ -145,8 +150,22 @@ public class UnsafeBufferPartition
     }
 
     @Override
+    public int getSliceCount()
+    {
+        return usedSlices.size();
+    }
+
+    @Override
     public void close()
     {
+        synchronized ( usedSlices )
+        {
+            for ( int i = 0; i < slices.length; i++ )
+            {
+                partitionSliceSelector.freePartitionSlice( this, partitionIndex, slices[i] );
+            }
+        }
+
         unsafe.setMemory( basePointer, allocatedLength, (byte) 0 );
         unsafe.freeMemory( basePointer );
     }
@@ -209,6 +228,16 @@ public class UnsafeBufferPartition
         }
 
         @Override
+        public void put( byte[] array, int offset, int length )
+        {
+            for ( int i = offset; i < offset + length; i++ )
+            {
+                unsafe.putByte( basePointer + baseIndex + writerIndex, array[i] );
+                writerIndex++;
+            }
+        }
+
+        @Override
         public byte read()
         {
             return read( readerIndex - baseIndex );
@@ -219,6 +248,16 @@ public class UnsafeBufferPartition
         {
             readerIndex++;
             return unsafe.getByte( basePointer + baseIndex + position );
+        }
+
+        @Override
+        public void read( byte[] array, int offset, int length )
+        {
+            for ( int i = offset; i < offset + length; i++ )
+            {
+                array[i] = unsafe.getByte( basePointer + baseIndex + readerIndex );
+                readerIndex++;
+            }
         }
 
         @Override

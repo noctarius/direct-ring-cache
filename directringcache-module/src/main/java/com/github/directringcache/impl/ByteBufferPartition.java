@@ -16,9 +16,10 @@ public class ByteBufferPartition
     {
 
         @Override
-        public Partition newPartition( int partitionIndex, int sliceByteSize, int slices )
+        public Partition newPartition( int partitionIndex, int sliceByteSize, int slices,
+                                       PartitionSliceSelector partitionSliceSelector )
         {
-            return new ByteBufferPartition( partitionIndex, slices, sliceByteSize, true );
+            return new ByteBufferPartition( partitionIndex, slices, sliceByteSize, true, partitionSliceSelector );
         }
     };
 
@@ -26,11 +27,14 @@ public class ByteBufferPartition
     {
 
         @Override
-        public Partition newPartition( int partitionIndex, int sliceByteSize, int slices )
+        public Partition newPartition( int partitionIndex, int sliceByteSize, int slices,
+                                       PartitionSliceSelector partitionSliceSelector )
         {
-            return new ByteBufferPartition( partitionIndex, slices, sliceByteSize, false );
+            return new ByteBufferPartition( partitionIndex, slices, sliceByteSize, false, partitionSliceSelector );
         }
     };
+
+    private final PartitionSliceSelector partitionSliceSelector;
 
     private final int partitionIndex;
 
@@ -44,8 +48,10 @@ public class ByteBufferPartition
 
     private final AtomicInteger index = new AtomicInteger( 0 );
 
-    private ByteBufferPartition( int partitionIndex, int slices, int sliceByteSize, boolean directMemory )
+    private ByteBufferPartition( int partitionIndex, int slices, int sliceByteSize, boolean directMemory,
+                                 PartitionSliceSelector partitionSliceSelector )
     {
+        this.partitionSliceSelector = partitionSliceSelector;
         this.partitionIndex = partitionIndex;
         this.sliceByteSize = sliceByteSize;
         this.usedSlices = new FixedLengthBitSet( slices );
@@ -103,7 +109,13 @@ public class ByteBufferPartition
     }
 
     @Override
-    public void free( PartitionSlice slice, PartitionSliceSelector partitionSliceSelector )
+    public int getSliceCount()
+    {
+        return usedSlices.size();
+    }
+
+    @Override
+    public void free( PartitionSlice slice )
     {
         if ( !( slice instanceof ByteBufferPartitionSlice ) )
         {
@@ -125,6 +137,14 @@ public class ByteBufferPartition
     @Override
     public void close()
     {
+        synchronized ( usedSlices )
+        {
+            for ( int i = 0; i < slices.length; i++ )
+            {
+                partitionSliceSelector.freePartitionSlice( this, partitionIndex, slices[i] );
+            }
+        }
+
         byteBuffer.clear();
     }
 
@@ -183,6 +203,13 @@ public class ByteBufferPartition
         }
 
         @Override
+        public void put( byte[] array, int offset, int length )
+        {
+            byteBuffer.put( array, offset, length );
+            writerIndex += length;
+        }
+
+        @Override
         public byte read()
         {
             return read( readerIndex - baseIndex );
@@ -193,6 +220,13 @@ public class ByteBufferPartition
         {
             readerIndex++;
             return byteBuffer.get( baseIndex + position );
+        }
+
+        @Override
+        public void read( byte[] array, int offset, int length )
+        {
+            byteBuffer.get( array, offset, length );
+            readerIndex += length;
         }
 
         @Override

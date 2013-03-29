@@ -1,17 +1,20 @@
 package com.github.directringcache.spi;
 
-public interface Partition {
+public interface Partition
+{
 
-	int available();
+    int available();
 
-	int used();
+    int used();
 
-	int getSliceByteSize();
+    int getSliceCount();
 
-	PartitionSlice get();
+    int getSliceByteSize();
 
-	void free(PartitionSlice slice, PartitionSliceSelector partitionSliceSelector);
+    PartitionSlice get();
 
-	void close();
+    void free( PartitionSlice slice );
+
+    void close();
 
 }

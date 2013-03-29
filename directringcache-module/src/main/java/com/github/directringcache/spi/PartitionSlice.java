@@ -1,29 +1,34 @@
 package com.github.directringcache.spi;
 
-public interface PartitionSlice {
+public interface PartitionSlice
+{
 
-	void clear();
+    void clear();
 
-	void put(byte value);
+    void put( byte value );
 
-	void put(int position, byte value);
+    void put( int position, byte value );
 
-	byte read();
+    void put( byte[] array, int offset, int length );
 
-	byte read(int position);
+    byte read();
 
-	int readableBytes();
+    byte read( int position );
 
-	int writeableBytes();
+    void read( byte[] array, int offset, int length );
 
-	int writerIndex();
+    int readableBytes();
 
-	int readerIndex();
+    int writeableBytes();
 
-	void writerIndex(int writerIndex);
+    int writerIndex();
 
-	void readerIndex(int readerIndex);
+    int readerIndex();
 
-	Partition getPartition();
+    void writerIndex( int writerIndex );
+
+    void readerIndex( int readerIndex );
+
+    Partition getPartition();
 
 }

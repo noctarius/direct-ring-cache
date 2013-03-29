@@ -34,7 +34,7 @@ public class PartitionBufferPoolImpl
         // Initialize partitions
         for ( int i = 0; i < partitions; i++ )
         {
-            this.partitions[i] = partitionFactory.newPartition( i, sliceByteSize, slices );
+            this.partitions[i] = partitionFactory.newPartition( i, sliceByteSize, slices, partitionSliceSelector );
         }
     }
 
@@ -48,7 +48,7 @@ public class PartitionBufferPoolImpl
     {
         if ( slice != null )
         {
-            slice.getPartition().free( slice, partitionSliceSelector );
+            slice.getPartition().free( slice );
         }
     }
 

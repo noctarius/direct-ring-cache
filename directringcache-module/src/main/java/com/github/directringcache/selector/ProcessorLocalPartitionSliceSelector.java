@@ -18,11 +18,15 @@ public class ProcessorLocalPartitionSliceSelector
 
     private final Partition[] cpuLocalPartition = new Partition[cpuAdapter.getProcessorCount()];
 
+    private final AccessStatistics accessStatistics = new AccessStatistics();
+
     private volatile int[] assigned;
 
     @Override
     public PartitionSlice selectPartitionSlice( Partition[] partitions )
     {
+        accessStatistics.access++;
+
         int processorId = cpuAdapter.getCurrentProcessorId();
         Partition partition = cpuLocalPartition[processorId];
         if ( partition != null && partition.available() > 0 )
@@ -44,9 +48,10 @@ public class ProcessorLocalPartitionSliceSelector
                 {
                     assigned[index] = processorId;
                     partition = partitions[index];
-                    cpuLocalPartition[processorId] = partition;
                     if ( partition.available() > 0 )
                     {
+                        accessStatistics.reallocatePartition++;
+                        cpuLocalPartition[processorId] = partition;
                         PartitionSlice slice = partition.get();
                         if ( slice != null )
                         {
@@ -60,6 +65,7 @@ public class ProcessorLocalPartitionSliceSelector
             {
                 if ( partitions[index].available() > 0 )
                 {
+                    accessStatistics.collisions++;
                     PartitionSlice slice = partitions[index].get();
                     if ( slice != null )
                     {
@@ -75,9 +81,10 @@ public class ProcessorLocalPartitionSliceSelector
     @Override
     public void freePartitionSlice( Partition partition, int partitionIndex, PartitionSlice slice )
     {
-        if ( partition.available() == 0 )
+        if ( partition.available() == partition.getSliceCount() )
         {
             assigned[partitionIndex] = -1;
+            System.out.println( accessStatistics.toString() );
         }
     }
 
@@ -101,6 +108,23 @@ public class ProcessorLocalPartitionSliceSelector
 
         throw new UnsupportedOperationSystemException( "OS " + osName + " (" + osVersion + " / " + osArch
             + ") is unsupported for use of cpu local allocation strategy" );
+    }
+
+    private static class AccessStatistics
+    {
+
+        private volatile long access = 0;
+
+        private volatile long collisions = 0;
+
+        private volatile long reallocatePartition = 0;
+
+        @Override
+        public String toString()
+        {
+            return "PLA-AccessStatistics [access=" + access + ", collisions=" + collisions + ", reallocatePartition="
+                + reallocatePartition + "]";
+        }
     }
 
     private static interface CpuAdapter

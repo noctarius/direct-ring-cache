@@ -10,11 +10,15 @@ public class ThreadLocalPartitionSliceSelector
 
     private final ThreadLocal<Partition> partitionAssignment = new ThreadLocal<Partition>();
 
+    private final AccessStatistics accessStatistics = new AccessStatistics();
+
     private volatile boolean[] assigned;
 
     @Override
     public PartitionSlice selectPartitionSlice( Partition[] partitions )
     {
+        accessStatistics.access++;
+
         Partition partition = partitionAssignment.get();
         if ( partition != null && partition.available() > 0 )
         {
@@ -34,11 +38,15 @@ public class ThreadLocalPartitionSliceSelector
                 {
                     assigned[index] = true;
                     partition = partitions[index];
-                    partitionAssignment.set( partition );
-                    PartitionSlice slice = partition.get();
-                    if ( slice != null )
+                    if ( partition.available() > 0 )
                     {
-                        return slice;
+                        partitionAssignment.set( partition );
+                        PartitionSlice slice = partition.get();
+                        if ( slice != null )
+                        {
+                            accessStatistics.reallocatePartition++;
+                            return slice;
+                        }
                     }
                 }
             }
@@ -50,6 +58,7 @@ public class ThreadLocalPartitionSliceSelector
                     PartitionSlice slice = partitions[index].get();
                     if ( slice != null )
                     {
+                        accessStatistics.collisions++;
                         return slice;
                     }
                 }
@@ -65,6 +74,24 @@ public class ThreadLocalPartitionSliceSelector
         if ( partition.available() == 0 )
         {
             assigned[partitionIndex] = false;
+            System.out.println( accessStatistics.toString() );
+        }
+    }
+
+    private static class AccessStatistics
+    {
+
+        private volatile long access = 0;
+
+        private volatile long collisions = 0;
+
+        private volatile long reallocatePartition = 0;
+
+        @Override
+        public String toString()
+        {
+            return "TLA-AccessStatistics [access=" + access + ", collisions=" + collisions + ", reallocatePartition="
+                + reallocatePartition + "]";
         }
     }
 
