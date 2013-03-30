@@ -36,6 +36,12 @@ class PartitionBufferImpl
     }
 
     @Override
+    public long readableSize()
+    {
+        return writerIndex;
+    }
+
+    @Override
     public byte readByte()
     {
         return read();
@@ -48,20 +54,39 @@ class PartitionBufferImpl
     }
 
     @Override
-    public long readBytes( byte[] bytes )
+    public void readBytes( byte[] bytes )
     {
-        return readBytes( bytes, 0, bytes.length );
+        readBytes( bytes, 0, bytes.length );
     }
 
     @Override
-    public long readBytes( byte[] bytes, int index, int length )
+    public void readBytes( byte[] bytes, int offset, int length )
     {
-        long readableBytes = Math.min( writerIndex - readerIndex, length );
-        for ( int i = index; i < readableBytes; i++ )
+        int baseSliceIndex = sliceIndex( readerIndex );
+        PartitionSlice slice = slices[baseSliceIndex];
+        if ( slice.readableBytes() >= length )
         {
-            bytes[i] = read();
+            slice.read( bytes, offset, length );
         }
-        return readableBytes;
+        else
+        {
+            int remaining = length - slice.readableBytes();
+            int additionalSlices = ( remaining / sliceByteSize() ) + ( remaining % sliceByteSize() != 0 ? 1 : 0 );
+
+            if ( baseSliceIndex + additionalSlices + 1 > slices.length )
+            {
+                throw new IndexOutOfBoundsException( "Not enough data to load" );
+            }
+
+            int sliceOffset = offset;
+            for ( int i = baseSliceIndex; i <= baseSliceIndex + additionalSlices; i++ )
+            {
+                int readable = Math.min( slices[i].readableBytes(), length - sliceOffset );
+                slices[i].read( bytes, sliceOffset, readable );
+                sliceOffset += readable;
+            }
+        }
+        readerIndex += length;
     }
 
     @Override
@@ -143,12 +168,30 @@ class PartitionBufferImpl
     }
 
     @Override
-    public void writeBytes( byte[] bytes, int index, int length )
+    public void writeBytes( byte[] bytes, int offset, int length )
     {
-        for ( int i = index; i < length; i++ )
+        int baseSliceIndex = slices.length - 1;
+        PartitionSlice slice = slices[baseSliceIndex];
+        if ( slice.writeableBytes() >= length )
         {
-            writeByte( bytes[i] );
+            slice.put( bytes, offset, length );
         }
+        else
+        {
+            int remaining = length - slice.writeableBytes();
+            int additionalSlices = ( remaining / sliceByteSize() ) + ( remaining % sliceByteSize() != 0 ? 1 : 0 );
+
+            resize( slices.length + additionalSlices );
+
+            int sliceOffset = offset;
+            for ( int i = baseSliceIndex; i <= baseSliceIndex + additionalSlices; i++ )
+            {
+                int writeable = Math.min( slices[i].writeableBytes(), length - sliceOffset );
+                slices[i].put( bytes, sliceOffset, writeable );
+                sliceOffset += writeable;
+            }
+        }
+        writerIndex += length;
     }
 
     @Override
@@ -156,42 +199,52 @@ class PartitionBufferImpl
     {
         byteBuffer.mark();
         byteBuffer.position( 0 );
-        while ( byteBuffer.hasRemaining() )
+
+        if ( byteBuffer.hasArray() )
         {
-            put( byteBuffer.get() );
+            writeBytes( byteBuffer.array(), byteBuffer.arrayOffset(), byteBuffer.remaining() );
+        }
+        else
+        {
+            while ( byteBuffer.hasRemaining() )
+            {
+                put( byteBuffer.get() );
+            }
         }
         byteBuffer.reset();
     }
 
     @Override
-    public void writeByteBuffer( ByteBuffer byteBuffer, int index, int length )
+    public void writeByteBuffer( ByteBuffer byteBuffer, int offset, int length )
     {
         byteBuffer.mark();
-        byteBuffer.position( index );
-        int position = 0;
-        while ( position++ < length )
+        byteBuffer.position( offset );
+        if ( byteBuffer.hasArray() )
         {
-            put( byteBuffer.get() );
+            writeBytes( byteBuffer.array(), byteBuffer.arrayOffset() + offset, length );
+        }
+        else
+        {
+            int position = 0;
+            while ( position++ < length )
+            {
+                put( byteBuffer.get() );
+            }
         }
         byteBuffer.reset();
     }
 
     @Override
-    public void writeRingBuffer( ReadablePartitionBuffer partitionBuffer )
+    public void writePartitionBuffer( ReadablePartitionBuffer partitionBuffer )
     {
-        long readerIndex = partitionBuffer.readerIndex();
-        while ( partitionBuffer.readable() )
-        {
-            put( partitionBuffer.readByte() );
-        }
-        partitionBuffer.readerIndex( readerIndex );
+        writePartitionBuffer( partitionBuffer, 0, -1 );// TODO
     }
 
     @Override
-    public void writeRingBuffer( ReadablePartitionBuffer partitionBuffer, long index, long length )
+    public void writePartitionBuffer( ReadablePartitionBuffer partitionBuffer, long offset, long length )
     {
         long readerIndex = partitionBuffer.readerIndex();
-        partitionBuffer.readerIndex( index );
+        partitionBuffer.readerIndex( offset );
         long position = 0;
         while ( position++ < length )
         {
@@ -317,11 +370,6 @@ class PartitionBufferImpl
             resize( sliceIndex + 1 );
         }
 
-        if ( sliceIndex > slices.length )
-        {
-            System.out.println( "BAM" );
-        }
-
         int relativePosition = (int) ( sliceIndex == 0 ? position : position % sliceByteSize() );
         slices[sliceIndex].put( relativePosition, value );
     }
@@ -348,12 +396,16 @@ class PartitionBufferImpl
 
     private synchronized void resize( int newSize )
     {
+        int oldSize = slices.length;
         PartitionSlice[] temp = new PartitionSlice[newSize];
         if ( slices != null )
         {
             System.arraycopy( slices, 0, temp, 0, slices.length );
         }
-        temp[temp.length - 1] = partitionBufferPool.requestSlice();
+        for ( int i = oldSize; i < newSize; i++ )
+        {
+            temp[i] = partitionBufferPool.requestSlice();
+        }
         if ( temp[temp.length - 1] != null )
         {
             slices = temp;

@@ -17,6 +17,8 @@ public interface PartitionSlice
 
     void read( byte[] array, int offset, int length );
 
+    int getSliceByteSize();
+
     int readableBytes();
 
     int writeableBytes();

@@ -40,6 +40,12 @@
         <version>${junit.version}</version>
         <scope>test</scope>
       </dependency>
+      <dependency>
+        <groupId>com.carrotsearch</groupId>
+        <artifactId>junit-benchmarks</artifactId>
+        <version>0.6.0</version>
+        <scope>test</scope>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 

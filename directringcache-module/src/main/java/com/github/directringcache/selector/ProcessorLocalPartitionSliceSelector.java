@@ -16,7 +16,7 @@ public class ProcessorLocalPartitionSliceSelector
 
     private final CpuAdapter cpuAdapter = getCpuAdapterSPI();
 
-    private final Partition[] cpuLocalPartition = new Partition[cpuAdapter.getProcessorCount()];
+    private volatile Partition[] cpuLocalPartition = new Partition[cpuAdapter.getProcessorCount()];
 
     private final AccessStatistics accessStatistics = new AccessStatistics();
 
@@ -84,7 +84,7 @@ public class ProcessorLocalPartitionSliceSelector
         if ( partition.available() == partition.getSliceCount() )
         {
             assigned[partitionIndex] = -1;
-            System.out.println( accessStatistics.toString() );
+            // System.out.println( accessStatistics.toString() );
         }
     }
 

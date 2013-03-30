@@ -25,13 +25,7 @@ public class MultiThreadingTestCase
         final PartitionBufferBuilder builder = new PartitionBufferBuilder( partitionFactory, partitionSliceSelector );
         final PartitionBufferPool pool = builder.allocatePool( "1M", processorCount * 8, "8K" );
 
-        final byte[] block10 = new byte[10 * 1024];
-        Arrays.fill( block10, (byte) 0 );
-
-        final byte[] block20 = new byte[20 * 1024];
-        Arrays.fill( block20, (byte) 0 );
-
-        final ExecutorService executorService = Executors.newFixedThreadPool( processorCount + 1 );
+        final ExecutorService executorService = Executors.newFixedThreadPool( processorCount * 2 + 1 );
 
         final CountDownLatch latch = new CountDownLatch( processorCount * 5 );
 
@@ -43,7 +37,7 @@ public class MultiThreadingTestCase
 
                 private final Random random = new Random( -System.nanoTime() );
 
-                private final int maxRuns = index % 2 == 0 ? 1000 : 800;
+                private final int maxRuns = index % 2 == 0 ? 10000 : 8000;
 
                 private volatile int o = 0;
 
@@ -58,14 +52,8 @@ public class MultiThreadingTestCase
                             return;
                         }
 
-                        if ( random.nextBoolean() )
-                        {
-                            partitionBuffer.writeBytes( block20 );
-                        }
-                        else
-                        {
-                            partitionBuffer.writeBytes( block10 );
-                        }
+                        final byte[] block = new byte[10 * ( 1024 + random.nextInt( 1024 ) )];
+                        partitionBuffer.writeBytes( fill( block ) );
 
                         o++;
 
@@ -77,6 +65,18 @@ public class MultiThreadingTestCase
                         {
                         }
 
+                        byte[] result = new byte[block.length];
+                        partitionBuffer.readBytes( result );
+
+                        for ( int i = 0; i < block.length; i++ )
+                        {
+                            if ( block[i] != result[i] )
+                            {
+                                System.err.println( "Arrays don't match at index=" + i );
+                                break;
+                            }
+                        }
+
                         partitionBuffer.free();
                         executorService.execute( this );
                     }
@@ -84,6 +84,15 @@ public class MultiThreadingTestCase
                     {
                         latch.countDown();
                     }
+                }
+
+                private byte[] fill( byte[] block )
+                {
+                    for ( int i = 0; i < block.length; i++ )
+                    {
+                        block[i] = (byte) ( 120 + random.nextInt( 100 ) );
+                    }
+                    return block;
                 }
             } );
         }

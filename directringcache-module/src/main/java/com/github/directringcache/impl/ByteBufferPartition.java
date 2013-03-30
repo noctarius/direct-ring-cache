@@ -1,7 +1,7 @@
 package com.github.directringcache.impl;
 
 import java.nio.ByteBuffer;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.github.directringcache.spi.Partition;
 import com.github.directringcache.spi.PartitionFactory;
@@ -38,15 +38,11 @@ public class ByteBufferPartition
 
     private final int partitionIndex;
 
-    private final ByteBuffer byteBuffer;
-
     private final ByteBufferPartitionSlice[] slices;
 
     private final int sliceByteSize;
 
     private final FixedLengthBitSet usedSlices;
-
-    private final AtomicInteger index = new AtomicInteger( 0 );
 
     private ByteBufferPartition( int partitionIndex, int slices, int sliceByteSize, boolean directMemory,
                                  PartitionSliceSelector partitionSliceSelector )
@@ -56,13 +52,13 @@ public class ByteBufferPartition
         this.sliceByteSize = sliceByteSize;
         this.usedSlices = new FixedLengthBitSet( slices );
         this.slices = new ByteBufferPartitionSlice[slices];
-        this.byteBuffer =
-            directMemory ? ByteBuffer.allocateDirect( sliceByteSize * slices ) : ByteBuffer.allocate( sliceByteSize
-                * slices );
 
         for ( int i = 0; i < slices; i++ )
         {
-            this.slices[i] = new ByteBufferPartitionSlice( i );
+            ByteBuffer buffer =
+                directMemory ? ByteBuffer.allocateDirect( sliceByteSize * slices )
+                                : ByteBuffer.allocate( sliceByteSize );
+            this.slices[i] = new ByteBufferPartitionSlice( buffer, i );
         }
     }
 
@@ -87,25 +83,25 @@ public class ByteBufferPartition
     @Override
     public PartitionSlice get()
     {
-        int possibleMatch = nextSlice();
-        if ( possibleMatch == -1 )
+        int retry = 0;
+        while ( retry++ < 5 )
         {
-            return null;
-        }
-
-        while ( !index.compareAndSet( index.get(), possibleMatch ) )
-        {
-            possibleMatch = nextSlice();
+            int possibleMatch = nextSlice();
             if ( possibleMatch == -1 )
             {
                 return null;
             }
+
+            synchronized ( usedSlices )
+            {
+                if ( !usedSlices.get( possibleMatch ) )
+                {
+                    usedSlices.set( possibleMatch );
+                    return slices[possibleMatch].lock();
+                }
+            }
         }
-        synchronized ( usedSlices )
-        {
-            usedSlices.set( possibleMatch );
-        }
-        return slices[possibleMatch];
+        return null;
     }
 
     @Override
@@ -129,7 +125,7 @@ public class ByteBufferPartition
         synchronized ( usedSlices )
         {
             usedSlices.clear( partitionSlice.index );
-            partitionSliceSelector.freePartitionSlice( this, partitionIndex, slice );
+            partitionSliceSelector.freePartitionSlice( this, partitionIndex, partitionSlice.unlock() );
         }
         slice.clear();
     }
@@ -144,8 +140,6 @@ public class ByteBufferPartition
                 partitionSliceSelector.freePartitionSlice( this, partitionIndex, slices[i] );
             }
         }
-
-        byteBuffer.clear();
     }
 
     private int nextSlice()
@@ -155,36 +149,33 @@ public class ByteBufferPartition
             return -1;
         }
 
-        int index = this.index.get();
-        return index == 0 || index == usedSlices.size() - 1 ? usedSlices.firstNotSet()
-                        : usedSlices.nextNotSet( index + 1 );
+        return usedSlices.firstNotSet();
     }
 
     public class ByteBufferPartitionSlice
         implements PartitionSlice
     {
 
+        private final ByteBuffer byteBuffer;
+
         private final int index;
 
-        private final int baseIndex;
+        private final AtomicBoolean lock = new AtomicBoolean( false );
 
         private int writerIndex;
 
         private int readerIndex;
 
-        private ByteBufferPartitionSlice( int index )
+        private ByteBufferPartitionSlice( ByteBuffer byteBuffer, int index )
         {
+            this.byteBuffer = byteBuffer;
             this.index = index;
-            this.baseIndex = index * sliceByteSize;
         }
 
         @Override
         public void clear()
         {
-            for ( int i = 0; i < sliceByteSize; i++ )
-            {
-                byteBuffer.put( baseIndex + i, (byte) 0 );
-            }
+            byteBuffer.clear();
             writerIndex = 0;
             readerIndex = 0;
         }
@@ -192,41 +183,49 @@ public class ByteBufferPartition
         @Override
         public void put( byte value )
         {
-            put( writerIndex - baseIndex, value );
+            put( writerIndex++, value );
         }
 
         @Override
         public void put( int position, byte value )
         {
-            byteBuffer.put( baseIndex + position, value );
-            writerIndex++;
+            byteBuffer.put( position, value );
         }
 
         @Override
         public void put( byte[] array, int offset, int length )
         {
-            byteBuffer.put( array, offset, length );
-            writerIndex += length;
+            for ( int i = 0; i < length; i++ )
+            {
+                put( writerIndex++, array[offset + i] );
+            }
         }
 
         @Override
         public byte read()
         {
-            return read( readerIndex - baseIndex );
+            return read( readerIndex++ );
         }
 
         @Override
         public byte read( int position )
         {
-            readerIndex++;
-            return byteBuffer.get( baseIndex + position );
+            return byteBuffer.get( position );
         }
 
         @Override
         public void read( byte[] array, int offset, int length )
         {
-            byteBuffer.get( array, offset, length );
-            readerIndex += length;
+            for ( int i = 0; i < length; i++ )
+            {
+                array[offset + i] = read( readerIndex++ );
+            }
+        }
+
+        @Override
+        public int getSliceByteSize()
+        {
+            return sliceByteSize;
         }
 
         @Override
@@ -271,6 +270,24 @@ public class ByteBufferPartition
         public Partition getPartition()
         {
             return ByteBufferPartition.this;
+        }
+
+        private synchronized PartitionSlice lock()
+        {
+            if ( !lock.compareAndSet( false, true ) )
+            {
+                throw new IllegalStateException( "PartitionSlice already locked" );
+            }
+            return this;
+        }
+
+        private synchronized PartitionSlice unlock()
+        {
+            if ( !lock.compareAndSet( true, false ) )
+            {
+                throw new IllegalStateException( "PartitionSlice not locked" );
+            }
+            return this;
         }
     }
 

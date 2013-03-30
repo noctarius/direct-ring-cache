@@ -5,13 +5,15 @@ public interface ReadablePartitionBuffer
 
     boolean readable();
 
+    long readableSize();
+
     byte readByte();
 
     short readUnsignedByte();
 
-    long readBytes( byte[] bytes );
+    void readBytes( byte[] bytes );
 
-    long readBytes( byte[] bytes, int index, int length );
+    void readBytes( byte[] bytes, int offset, int length );
 
     char readChar();
 

@@ -37,14 +37,16 @@ public class PartitionInputStream
     public int read( byte[] bytes )
         throws IOException
     {
-        return (int) partitionBuffer.readBytes( bytes );
+        partitionBuffer.readBytes( bytes );
+        return bytes.length;
     }
 
     @Override
     public int read( byte[] bytes, int offset, int length )
         throws IOException
     {
-        return (int) partitionBuffer.readBytes( bytes, offset, length );
+        partitionBuffer.readBytes( bytes, offset, length );
+        return length;
     }
 
     @Override

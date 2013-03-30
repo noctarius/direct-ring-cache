@@ -11,15 +11,15 @@ public interface WritablePartitionBuffer
 
     void writeBytes( byte[] bytes );
 
-    void writeBytes( byte[] bytes, int index, int length );
+    void writeBytes( byte[] bytes, int offset, int length );
 
     void writeByteBuffer( ByteBuffer byteBuffer );
 
-    void writeByteBuffer( ByteBuffer byteBuffer, int index, int length );
+    void writeByteBuffer( ByteBuffer byteBuffer, int offset, int length );
 
-    void writeRingBuffer( ReadablePartitionBuffer partitionBuffer );
+    void writePartitionBuffer( ReadablePartitionBuffer partitionBuffer );
 
-    void writeRingBuffer( ReadablePartitionBuffer partitionBuffer, long index, long length );
+    void writePartitionBuffer( ReadablePartitionBuffer partitionBuffer, long offset, long length );
 
     void writeChar( int value );
 
