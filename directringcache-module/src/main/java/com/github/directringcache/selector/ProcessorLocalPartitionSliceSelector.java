@@ -147,10 +147,12 @@ public class ProcessorLocalPartitionSliceSelector
             Native.register( Platform.C_LIBRARY_NAME );
         }
 
+        private final int processorCount = Runtime.getRuntime().availableProcessors();
+
         @Override
         public int getProcessorCount()
         {
-            return Runtime.getRuntime().availableProcessors();
+            return processorCount;
         }
 
         @Override
@@ -173,6 +175,8 @@ public class ProcessorLocalPartitionSliceSelector
             Native.register( "kernel32" );
         }
 
+        private final int processorCount = Runtime.getRuntime().availableProcessors();
+
         private final boolean isLowCpuSystem;
 
         private WindowsCpuAdapter()
@@ -183,7 +187,7 @@ public class ProcessorLocalPartitionSliceSelector
         @Override
         public int getProcessorCount()
         {
-            return Runtime.getRuntime().availableProcessors();
+            return processorCount;
         }
 
         @Override
@@ -194,8 +198,7 @@ public class ProcessorLocalPartitionSliceSelector
 
             PROCESSOR_NUMBER processorNumber = new PROCESSOR_NUMBER();
             GetCurrentProcessorNumberEx( processorNumber );
-
-            return processorNumber.Group * processorNumber.Number;
+            return processorNumber.Group * processorCount + processorNumber.Number;
         }
     }
 

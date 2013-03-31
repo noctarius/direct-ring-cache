@@ -11,6 +11,8 @@ import org.junit.runners.Parameterized.Parameters;
 import com.carrotsearch.junitbenchmarks.AbstractBenchmark;
 import com.carrotsearch.junitbenchmarks.BenchmarkOptions;
 import com.carrotsearch.junitbenchmarks.Clock;
+import com.carrotsearch.junitbenchmarks.annotation.BenchmarkHistoryChart;
+import com.carrotsearch.junitbenchmarks.annotation.LabelType;
 import com.github.directringcache.spi.PartitionFactory;
 import com.github.directringcache.spi.PartitionSliceSelector;
 
@@ -44,6 +46,7 @@ public class Benchmarker
     }
 
     @Test
+    @BenchmarkHistoryChart( labelWith = LabelType.RUN_ID, maxRuns = 20 )
     @BenchmarkOptions( warmupRounds = 10000, benchmarkRounds = 25000, clock = Clock.NANO_TIME, concurrency = 4 )
     public void benchmark()
         throws Exception

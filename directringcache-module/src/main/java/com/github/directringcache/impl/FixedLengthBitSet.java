@@ -19,12 +19,13 @@ public class FixedLengthBitSet
     {
         BufferUtils.rangeCheck( bitIndex, 0, bits, "bitIndex" );
         int index = index( bitIndex );
+        long mask = 1L << bitIndex;
         long value = words.get( index );
-        long newValue = value ^ ( 1L << bitIndex );
+        long newValue = value ^ mask;
         while ( !words.compareAndSet( index, value, newValue ) )
         {
             value = words.get( index );
-            newValue = value ^ ( 1L << bitIndex );
+            newValue = value ^ mask;
         }
     }
 
@@ -32,27 +33,34 @@ public class FixedLengthBitSet
     {
         BufferUtils.rangeCheck( bitIndex, 0, bits, "bitIndex" );
         int index = index( bitIndex );
-        return ( words.get( index ) & ( 1L << bitIndex ) ) != 0;
+        long mask = 1L << bitIndex;
+        return ( words.get( index ) & mask ) != 0;
     }
 
-    public void set( int bitIndex )
+    public boolean testAndSet( int bitIndex )
     {
         BufferUtils.rangeCheck( bitIndex, 0, bits, "bitIndex" );
         int index = index( bitIndex );
+        long mask = 1L << bitIndex;
         long value = words.get( index );
-        long newValue = value | ( 1L << bitIndex );
+        long newValue = value | mask;
         while ( !words.compareAndSet( index, value, newValue ) )
         {
             value = words.get( index );
-            newValue = value | ( 1L << bitIndex );
+            if ( ( value & mask ) != 0 )
+            {
+                return false;
+            }
+            newValue = value | mask;
         }
+        return true;
     }
 
     public void set( int bitIndex, boolean value )
     {
         if ( value )
         {
-            set( bitIndex );
+            testAndSet( bitIndex );
         }
         else
         {
@@ -64,12 +72,13 @@ public class FixedLengthBitSet
     {
         BufferUtils.rangeCheck( bitIndex, 0, bits, "bitIndex" );
         int index = index( bitIndex );
+        long mask = 1L << bitIndex;
         long value = words.get( index );
-        long newValue = value & ~( 1L << bitIndex );
+        long newValue = value & ~mask;
         while ( !words.compareAndSet( index, value, newValue ) )
         {
             value = words.get( index );
-            newValue = value & ~( 1L << bitIndex );
+            newValue = value & ~mask;
         }
     }
 

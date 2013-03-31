@@ -2,7 +2,9 @@ package com.github.directringcache.impl;
 
 import java.lang.reflect.Field;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.github.directringcache.spi.Partition;
 import com.github.directringcache.spi.PartitionFactory;
@@ -60,25 +62,25 @@ public class UnsafeBufferPartition
         }
     }
 
+    private static final Logger LOGGER = LoggerFactory.getLogger( UnsafeBufferPartition.class );
+
+    private static final Logger SLICE_LOGGER = LoggerFactory.getLogger( UnsafePartitionSlice.class );
+
     private final sun.misc.Unsafe unsafe = UnsafeUtil.getUnsafe();
+
+    private final AtomicBoolean closed = new AtomicBoolean( false );
 
     private final PartitionSliceSelector partitionSliceSelector;
 
     private final int partitionIndex;
 
-    private final long basePointer;
-
     private final long allocatedLength;
-
-    private final long lastMemoryPointer;
 
     private final UnsafePartitionSlice[] slices;
 
     private final int sliceByteSize;
 
     private final FixedLengthBitSet usedSlices;
-
-    private final AtomicInteger index = new AtomicInteger( 0 );
 
     private UnsafeBufferPartition( int partitionIndex, int slices, int sliceByteSize,
                                    PartitionSliceSelector partitionSliceSelector )
@@ -89,22 +91,22 @@ public class UnsafeBufferPartition
         this.usedSlices = new FixedLengthBitSet( slices );
         this.slices = new UnsafePartitionSlice[slices];
         this.allocatedLength = sliceByteSize * slices;
-        this.basePointer = unsafe.allocateMemory( allocatedLength );
-        this.lastMemoryPointer = basePointer + allocatedLength - 1;
 
-        /*
-         * System.out.println( "malloc data: partitionIndex=" + partitionIndex + ", basePointer=" + basePointer +
-         * ", allocatedLength=" + allocatedLength + ", lastBytePointer=" + lastMemoryPointer );
-         */
+        if ( LOGGER.isTraceEnabled() )
+        {
+            LOGGER.trace( "malloc data: partitionIndex=" + partitionIndex + ", allocatedLength=" + allocatedLength );
+        }
 
         for ( int i = 0; i < slices; i++ )
         {
             this.slices[i] = new UnsafePartitionSlice( i );
-            /*
-             * System.out.println( "sliced data: memoryPointer=" + ( basePointer + this.slices[i].baseIndex ) +
-             * ", sliceIndex=" + i + ", length=" + sliceByteSize + ", sliceOffset=" + this.slices[i].baseIndex +
-             * ", lastBytePointer=" + this.slices[i].lastMemoryPointer );
-             */
+
+            if ( LOGGER.isTraceEnabled() )
+            {
+                UnsafePartitionSlice slice = this.slices[i];
+                LOGGER.trace( "sliced data: memoryPointer=" + ( slice.memoryPointer ) + ", sliceIndex=" + i
+                    + ", length=" + sliceByteSize + ", lastBytePointer=" + slice.lastMemoryPointer );
+            }
         }
     }
 
@@ -138,18 +140,14 @@ public class UnsafeBufferPartition
                 return null;
             }
 
-            int oldIndex = index.get();
-            while ( !index.compareAndSet( oldIndex, possibleMatch ) )
-            {
-                oldIndex = index.get();
-                possibleMatch = nextSlice();
-            }
             synchronized ( usedSlices )
             {
                 if ( !usedSlices.get( possibleMatch ) )
                 {
-                    usedSlices.set( possibleMatch );
-                    return slices[possibleMatch].lock();
+                    if ( usedSlices.testAndSet( possibleMatch ) )
+                    {
+                        return slices[possibleMatch].lock();
+                    }
                 }
             }
         }
@@ -185,16 +183,19 @@ public class UnsafeBufferPartition
     @Override
     public void close()
     {
+        if ( !closed.compareAndSet( false, true ) )
+        {
+            return;
+        }
+
         synchronized ( usedSlices )
         {
             for ( int i = 0; i < slices.length; i++ )
             {
                 partitionSliceSelector.freePartitionSlice( this, partitionIndex, slices[i] );
+                slices[i].free();
             }
         }
-
-        unsafe.setMemory( basePointer, allocatedLength, (byte) 0 );
-        unsafe.freeMemory( basePointer );
     }
 
     private int nextSlice()
@@ -204,14 +205,7 @@ public class UnsafeBufferPartition
             return -1;
         }
 
-        int index = this.index.get();
-        int pos = index == 0 || index == usedSlices.size() - 1 ? -1 : usedSlices.nextNotSet( index + 1 );
-        if ( pos == -1 )
-        {
-            pos = usedSlices.firstNotSet();
-        }
-
-        return pos;
+        return usedSlices.firstNotSet();
     }
 
     public class UnsafePartitionSlice
@@ -219,8 +213,6 @@ public class UnsafeBufferPartition
     {
 
         private final int index;
-
-        private final int baseIndex;
 
         private final long memoryPointer;
 
@@ -235,8 +227,7 @@ public class UnsafeBufferPartition
         private UnsafePartitionSlice( int index )
         {
             this.index = index;
-            this.baseIndex = index * sliceByteSize;
-            this.memoryPointer = basePointer + this.baseIndex;
+            this.memoryPointer = unsafe.allocateMemory( sliceByteSize );
             this.lastMemoryPointer = memoryPointer + sliceByteSize - 1;
             clear();
         }
@@ -258,7 +249,10 @@ public class UnsafeBufferPartition
         @Override
         public void put( int position, byte value )
         {
-            // System.out.println( "writeToOffset=" + ( memoryPointer + position ) );
+            if ( SLICE_LOGGER.isTraceEnabled() )
+            {
+                SLICE_LOGGER.trace( "writeToOffset=" + ( memoryPointer + position ) );
+            }
             unsafe.putByte( memoryPointer + position, value );
         }
 
@@ -269,12 +263,13 @@ public class UnsafeBufferPartition
             {
                 throw new IndexOutOfBoundsException( "Writing the array exhausted the available size" );
             }
-            /*
-             * System.out.println( "partition=" + partitionIndex + ", sliceIndex=" + index + ", sliceOffset=" +
-             * baseIndex + ", basePointer=" + basePointer + ", allocatedLength=" + allocatedLength + ", writerIndex=" +
-             * writerIndex + ", offset=" + offset + ", arrayLength=" + array.length + ", writeLength=" + length +
-             * ", writerAddress=" + ( memoryPointer + writerIndex ) );
-             */
+
+            if ( SLICE_LOGGER.isTraceEnabled() )
+            {
+                SLICE_LOGGER.trace( "partition=" + partitionIndex + ", sliceIndex=" + index + ", allocatedLength="
+                    + allocatedLength + ", writerIndex=" + writerIndex + ", offset=" + offset + ", arrayLength="
+                    + array.length + ", writeLength=" + length + ", writerAddress=" + ( memoryPointer + writerIndex ) );
+            }
             unsafe.copyMemory( array, UnsafeUtil.BYTE_ARRAY_OFFSET + offset, null, memoryPointer + writerIndex, length );
             writerIndex += length;
         }
@@ -298,12 +293,14 @@ public class UnsafeBufferPartition
             {
                 throw new IndexOutOfBoundsException( "Reading the array exhausted the available size" );
             }
-            /*
-             * System.out.println( "partition=" + partitionIndex + ", sliceIndex=" + index + ", sliceOffset=" +
-             * baseIndex + ", basePointer=" + basePointer + ", allocatedLength=" + allocatedLength + ", readerIndex=" +
-             * readerIndex + ", offset=" + offset + ", arrayLength=" + array.length + ", readLength=" + length +
-             * ", readerAddress=" + ( memoryPointer + readerIndex ) );
-             */
+
+            if ( SLICE_LOGGER.isTraceEnabled() )
+            {
+                SLICE_LOGGER.trace( "partition=" + partitionIndex + ", sliceIndex=" + index + ", allocatedLength="
+                    + allocatedLength + ", readerIndex=" + readerIndex + ", offset=" + offset + ", arrayLength="
+                    + array.length + ", readLength=" + length + ", readerAddress=" + ( memoryPointer + readerIndex ) );
+            }
+
             unsafe.copyMemory( null, memoryPointer + readerIndex, array, UnsafeUtil.BYTE_ARRAY_OFFSET + offset, length );
             readerIndex += length;
         }
@@ -384,6 +381,12 @@ public class UnsafeBufferPartition
         private long writerAddress()
         {
             return memoryPointer + writerIndex;
+        }
+
+        private void free()
+        {
+            unsafe.setMemory( memoryPointer, sliceByteSize, (byte) 0 );
+            unsafe.freeMemory( memoryPointer );
         }
     }
 

@@ -96,8 +96,10 @@ public class ByteBufferPartition
             {
                 if ( !usedSlices.get( possibleMatch ) )
                 {
-                    usedSlices.set( possibleMatch );
-                    return slices[possibleMatch].lock();
+                    if ( usedSlices.testAndSet( possibleMatch ) )
+                    {
+                        return slices[possibleMatch].lock();
+                    }
                 }
             }
         }
