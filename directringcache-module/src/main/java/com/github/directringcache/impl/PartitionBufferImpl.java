@@ -348,13 +348,16 @@ class PartitionBufferImpl
     }
 
     @Override
-    public synchronized void free()
+    public void free()
     {
-        for ( PartitionSlice slice : slices )
+        synchronized ( slices )
         {
-            partitionBufferPool.freeSlice( slice );
+            for ( PartitionSlice slice : slices )
+            {
+                partitionBufferPool.freeSlice( slice );
+            }
+            Arrays.fill( slices, null );
         }
-        Arrays.fill( slices, null );
     }
 
     private void put( byte value )

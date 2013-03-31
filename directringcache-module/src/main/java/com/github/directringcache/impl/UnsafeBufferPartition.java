@@ -2,6 +2,7 @@ package com.github.directringcache.impl;
 
 import java.lang.reflect.Field;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -170,8 +171,8 @@ public class UnsafeBufferPartition
         {
             usedSlices.clear( partitionSlice.index );
             partitionSliceSelector.freePartitionSlice( this, partitionIndex, partitionSlice.unlock() );
+            slice.clear();
         }
-        slice.clear();
     }
 
     @Override
@@ -220,9 +221,13 @@ public class UnsafeBufferPartition
 
         private final AtomicBoolean lock = new AtomicBoolean( false );
 
-        private int writerIndex;
+        private volatile int writerIndex;
 
-        private int readerIndex;
+        private volatile int readerIndex;
+
+        private final AtomicInteger aquired = new AtomicInteger( 0 );
+
+        private final AtomicInteger freed = new AtomicInteger( 0 );
 
         private UnsafePartitionSlice( int index )
         {
@@ -270,7 +275,8 @@ public class UnsafeBufferPartition
                     + allocatedLength + ", writerIndex=" + writerIndex + ", offset=" + offset + ", arrayLength="
                     + array.length + ", writeLength=" + length + ", writerAddress=" + ( memoryPointer + writerIndex ) );
             }
-            unsafe.copyMemory( array, UnsafeUtil.BYTE_ARRAY_OFFSET + offset, null, memoryPointer + writerIndex, length );
+            long memOffset = memoryPointer + readerIndex;
+            unsafe.copyMemory( array, UnsafeUtil.BYTE_ARRAY_OFFSET + offset, null, memOffset, length );
             writerIndex += length;
         }
 
@@ -300,8 +306,8 @@ public class UnsafeBufferPartition
                     + allocatedLength + ", readerIndex=" + readerIndex + ", offset=" + offset + ", arrayLength="
                     + array.length + ", readLength=" + length + ", readerAddress=" + ( memoryPointer + readerIndex ) );
             }
-
-            unsafe.copyMemory( null, memoryPointer + readerIndex, array, UnsafeUtil.BYTE_ARRAY_OFFSET + offset, length );
+            long memOffset = memoryPointer + readerIndex;
+            unsafe.copyMemory( null, memOffset, array, UnsafeUtil.BYTE_ARRAY_OFFSET + offset, length );
             readerIndex += length;
         }
 
@@ -361,6 +367,12 @@ public class UnsafeBufferPartition
             {
                 throw new IllegalStateException( "PartitionSlice already locked" );
             }
+            if ( aquired.get() != freed.get() )
+            {
+                throw new IllegalStateException( "Not all aquires (" + aquired.get() + ") are freed (" + freed.get()
+                    + ")" );
+            }
+            aquired.incrementAndGet();
             return this;
         }
 
@@ -370,6 +382,7 @@ public class UnsafeBufferPartition
             {
                 throw new IllegalStateException( "PartitionSlice not locked" );
             }
+            freed.incrementAndGet();
             return this;
         }
 

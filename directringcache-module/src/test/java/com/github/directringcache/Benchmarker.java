@@ -1,5 +1,6 @@
 package com.github.directringcache;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Random;
 
@@ -47,7 +48,7 @@ public class Benchmarker
 
     @Test
     @BenchmarkHistoryChart( labelWith = LabelType.RUN_ID, maxRuns = 20 )
-    @BenchmarkOptions( warmupRounds = 10000, benchmarkRounds = 25000, clock = Clock.NANO_TIME, concurrency = 4 )
+    @BenchmarkOptions( warmupRounds = 1000, benchmarkRounds = 20000, clock = Clock.NANO_TIME, concurrency = 20 )
     public void benchmark()
         throws Exception
     {
@@ -65,6 +66,8 @@ public class Benchmarker
             {
                 if ( block[i] != result[i] )
                 {
+                    System.out.println( Arrays.toString( block ) );
+                    System.out.println( Arrays.toString( result ) );
                     throw new Exception( "Arrays don't match at index=" + i );
                 }
             }

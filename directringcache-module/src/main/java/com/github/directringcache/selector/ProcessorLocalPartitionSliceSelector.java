@@ -2,6 +2,7 @@ package com.github.directringcache.selector;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 
 import com.github.directringcache.spi.Partition;
 import com.github.directringcache.spi.PartitionSlice;
@@ -16,27 +17,28 @@ public class ProcessorLocalPartitionSliceSelector
 
     private final CpuAdapter cpuAdapter = getCpuAdapterSPI();
 
-    private volatile Partition[] cpuLocalPartition = new Partition[cpuAdapter.getProcessorCount()];
+    private final AtomicReferenceArray<Partition> cpuLocalPartition =
+        new AtomicReferenceArray<Partition>( cpuAdapter.getProcessorCount() );
 
-    private final AccessStatistics accessStatistics = new AccessStatistics();
-
-    private volatile int[] assigned;
+    private volatile int[] assigned = new int[0];
 
     @Override
     public PartitionSlice selectPartitionSlice( Partition[] partitions )
     {
-        accessStatistics.access++;
-
         int processorId = cpuAdapter.getCurrentProcessorId();
-        Partition partition = cpuLocalPartition[processorId];
+        Partition partition = cpuLocalPartition.get( processorId );
         if ( partition != null && partition.available() > 0 )
         {
-            return partition.get();
+            PartitionSlice slice = partition.get();
+            if ( slice != null )
+            {
+                return slice;
+            }
         }
 
-        synchronized ( this )
+        synchronized ( assigned )
         {
-            if ( assigned == null )
+            if ( assigned.length == 0 )
             {
                 assigned = new int[partitions.length];
                 Arrays.fill( assigned, -1 );
@@ -50,8 +52,7 @@ public class ProcessorLocalPartitionSliceSelector
                     partition = partitions[index];
                     if ( partition.available() > 0 )
                     {
-                        accessStatistics.reallocatePartition++;
-                        cpuLocalPartition[processorId] = partition;
+                        cpuLocalPartition.set( processorId, partition );
                         PartitionSlice slice = partition.get();
                         if ( slice != null )
                         {
@@ -65,7 +66,6 @@ public class ProcessorLocalPartitionSliceSelector
             {
                 if ( partitions[index].available() > 0 )
                 {
-                    accessStatistics.collisions++;
                     PartitionSlice slice = partitions[index].get();
                     if ( slice != null )
                     {
@@ -84,7 +84,6 @@ public class ProcessorLocalPartitionSliceSelector
         if ( partition.available() == partition.getSliceCount() )
         {
             assigned[partitionIndex] = -1;
-            // System.out.println( accessStatistics.toString() );
         }
     }
 
@@ -108,23 +107,6 @@ public class ProcessorLocalPartitionSliceSelector
 
         throw new UnsupportedOperationSystemException( "OS " + osName + " (" + osVersion + " / " + osArch
             + ") is unsupported for use of cpu local allocation strategy" );
-    }
-
-    private static class AccessStatistics
-    {
-
-        private volatile long access = 0;
-
-        private volatile long collisions = 0;
-
-        private volatile long reallocatePartition = 0;
-
-        @Override
-        public String toString()
-        {
-            return "PLA-AccessStatistics [access=" + access + ", collisions=" + collisions + ", reallocatePartition="
-                + reallocatePartition + "]";
-        }
     }
 
     private static interface CpuAdapter
