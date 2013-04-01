@@ -13,18 +13,18 @@ import com.github.directringcache.spi.PartitionSlice;
 import com.github.directringcache.spi.PartitionSliceSelector;
 
 @SuppressWarnings( "restriction" )
-public class UnsafeBufferPartition
+public class UnsafePooledPartition
     implements Partition
 {
 
-    public static final PartitionFactory UNSAFE_PARTITION_FACTORY = new PartitionFactory()
+    public static final PartitionFactory UNSAFE_POOLED_PARTITION_FACTORY = new PartitionFactory()
     {
 
         @Override
         public Partition newPartition( int partitionIndex, int sliceByteSize, int slices,
                                        PartitionSliceSelector partitionSliceSelector )
         {
-            return new UnsafeBufferPartition( partitionIndex, slices, sliceByteSize, partitionSliceSelector );
+            return new UnsafePooledPartition( partitionIndex, slices, sliceByteSize, partitionSliceSelector );
         }
     };
 
@@ -63,7 +63,7 @@ public class UnsafeBufferPartition
         }
     }
 
-    private static final Logger LOGGER = LoggerFactory.getLogger( UnsafeBufferPartition.class );
+    private static final Logger LOGGER = LoggerFactory.getLogger( UnsafePooledPartition.class );
 
     private static final Logger SLICE_LOGGER = LoggerFactory.getLogger( UnsafePartitionSlice.class );
 
@@ -83,7 +83,7 @@ public class UnsafeBufferPartition
 
     private final FixedLengthBitSet usedSlices;
 
-    private UnsafeBufferPartition( int partitionIndex, int slices, int sliceByteSize,
+    private UnsafePooledPartition( int partitionIndex, int slices, int sliceByteSize,
                                    PartitionSliceSelector partitionSliceSelector )
     {
         this.partitionSliceSelector = partitionSliceSelector;
@@ -109,6 +109,12 @@ public class UnsafeBufferPartition
                     + ", length=" + sliceByteSize + ", lastBytePointer=" + slice.lastMemoryPointer );
             }
         }
+    }
+
+    @Override
+    public boolean isPooled()
+    {
+        return true;
     }
 
     @Override
@@ -358,7 +364,7 @@ public class UnsafeBufferPartition
         @Override
         public Partition getPartition()
         {
-            return UnsafeBufferPartition.this;
+            return UnsafePooledPartition.this;
         }
 
         private synchronized PartitionSlice lock()

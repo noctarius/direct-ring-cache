@@ -6,7 +6,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import com.github.directringcache.impl.UnsafeBufferPartition;
+import com.github.directringcache.impl.UnsafePooledPartition;
 import com.github.directringcache.selector.ProcessorLocalPartitionSliceSelector;
 import com.github.directringcache.spi.PartitionFactory;
 import com.github.directringcache.spi.PartitionSliceSelector;
@@ -19,7 +19,7 @@ public class MultiThreadingTestCase
     {
         final int processorCount = Runtime.getRuntime().availableProcessors();
 
-        final PartitionFactory partitionFactory = UnsafeBufferPartition.UNSAFE_PARTITION_FACTORY;
+        final PartitionFactory partitionFactory = UnsafePooledPartition.UNSAFE_POOLED_PARTITION_FACTORY;
         final PartitionSliceSelector partitionSliceSelector = new ProcessorLocalPartitionSliceSelector();
 
         final PartitionBufferBuilder builder = new PartitionBufferBuilder( partitionFactory, partitionSliceSelector );

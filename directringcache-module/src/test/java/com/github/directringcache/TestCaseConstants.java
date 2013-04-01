@@ -4,8 +4,8 @@ import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 
-import com.github.directringcache.impl.ByteBufferPartition;
-import com.github.directringcache.impl.UnsafeBufferPartition;
+import com.github.directringcache.impl.ByteBufferPooledPartition;
+import com.github.directringcache.impl.UnsafePooledPartition;
 import com.github.directringcache.selector.ProcessorLocalPartitionSliceSelector;
 import com.github.directringcache.selector.RoundRobinPartitionSliceSelector;
 import com.github.directringcache.selector.ThreadLocalPartitionSliceSelector;
@@ -13,8 +13,9 @@ import com.github.directringcache.selector.ThreadLocalPartitionSliceSelector;
 public class TestCaseConstants
 {
     public static final Object[] PARTITION_FACTORIES = new Object[] {
-        ByteBufferPartition.DIRECT_BYTEBUFFER_PARTITION_FACTORY, ByteBufferPartition.HEAP_BYTEBUFFER_PARTITION_FACTORY,
-        UnsafeBufferPartition.UNSAFE_PARTITION_FACTORY };
+        ByteBufferPooledPartition.DIRECT_BYTEBUFFER_PARTITION_FACTORY,
+        ByteBufferPooledPartition.HEAP_BYTEBUFFER_PARTITION_FACTORY,
+        UnsafePooledPartition.UNSAFE_POOLED_PARTITION_FACTORY };
 
     public static final Object[] PARTITION_SLICE_SELECTORS = new Object[] { RoundRobinPartitionSliceSelector.class,
         ThreadLocalPartitionSliceSelector.class, ProcessorLocalPartitionSliceSelector.class };
@@ -30,11 +31,11 @@ public class TestCaseConstants
             for ( Object partitionSliceSelector : PARTITION_SLICE_SELECTORS )
             {
                 String partitionFactoryName = partitionFactory.getClass().getEnclosingClass().getSimpleName();
-                if ( partitionFactory == ByteBufferPartition.DIRECT_BYTEBUFFER_PARTITION_FACTORY )
+                if ( partitionFactory == ByteBufferPooledPartition.DIRECT_BYTEBUFFER_PARTITION_FACTORY )
                 {
                     partitionFactoryName += "{Direct}";
                 }
-                else if ( partitionFactory == ByteBufferPartition.HEAP_BYTEBUFFER_PARTITION_FACTORY )
+                else if ( partitionFactory == ByteBufferPooledPartition.HEAP_BYTEBUFFER_PARTITION_FACTORY )
                 {
                     partitionFactoryName += "{Heap}";
                 }

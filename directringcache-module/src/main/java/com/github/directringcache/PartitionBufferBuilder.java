@@ -1,7 +1,7 @@
 package com.github.directringcache;
 
 import com.github.directringcache.impl.BufferUtils;
-import com.github.directringcache.impl.ByteBufferPartition;
+import com.github.directringcache.impl.ByteBufferPooledPartition;
 import com.github.directringcache.impl.PartitionBufferPoolImpl;
 import com.github.directringcache.selector.ThreadLocalPartitionSliceSelector;
 import com.github.directringcache.spi.PartitionFactory;
@@ -29,7 +29,7 @@ public final class PartitionBufferBuilder
 
     public PartitionBufferBuilder( PartitionSliceSelector partitionSliceSelector )
     {
-        this( ByteBufferPartition.DIRECT_BYTEBUFFER_PARTITION_FACTORY, partitionSliceSelector );
+        this( ByteBufferPooledPartition.DIRECT_BYTEBUFFER_PARTITION_FACTORY, partitionSliceSelector );
     }
 
     public PartitionBufferPool allocatePool( String memorySizeDescriptor, String sliceSizeDescriptor )

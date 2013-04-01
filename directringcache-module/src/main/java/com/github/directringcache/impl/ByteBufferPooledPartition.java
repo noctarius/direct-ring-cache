@@ -8,7 +8,7 @@ import com.github.directringcache.spi.PartitionFactory;
 import com.github.directringcache.spi.PartitionSlice;
 import com.github.directringcache.spi.PartitionSliceSelector;
 
-public class ByteBufferPartition
+public class ByteBufferPooledPartition
     implements Partition
 {
 
@@ -19,7 +19,7 @@ public class ByteBufferPartition
         public Partition newPartition( int partitionIndex, int sliceByteSize, int slices,
                                        PartitionSliceSelector partitionSliceSelector )
         {
-            return new ByteBufferPartition( partitionIndex, slices, sliceByteSize, true, partitionSliceSelector );
+            return new ByteBufferPooledPartition( partitionIndex, slices, sliceByteSize, true, partitionSliceSelector );
         }
     };
 
@@ -30,7 +30,7 @@ public class ByteBufferPartition
         public Partition newPartition( int partitionIndex, int sliceByteSize, int slices,
                                        PartitionSliceSelector partitionSliceSelector )
         {
-            return new ByteBufferPartition( partitionIndex, slices, sliceByteSize, false, partitionSliceSelector );
+            return new ByteBufferPooledPartition( partitionIndex, slices, sliceByteSize, false, partitionSliceSelector );
         }
     };
 
@@ -44,8 +44,8 @@ public class ByteBufferPartition
 
     private final FixedLengthBitSet usedSlices;
 
-    private ByteBufferPartition( int partitionIndex, int slices, int sliceByteSize, boolean directMemory,
-                                 PartitionSliceSelector partitionSliceSelector )
+    private ByteBufferPooledPartition( int partitionIndex, int slices, int sliceByteSize, boolean directMemory,
+                                       PartitionSliceSelector partitionSliceSelector )
     {
         this.partitionSliceSelector = partitionSliceSelector;
         this.partitionIndex = partitionIndex;
@@ -60,6 +60,12 @@ public class ByteBufferPartition
                                 : ByteBuffer.allocate( sliceByteSize );
             this.slices[i] = new ByteBufferPartitionSlice( buffer, i );
         }
+    }
+
+    @Override
+    public boolean isPooled()
+    {
+        return true;
     }
 
     @Override
@@ -271,7 +277,7 @@ public class ByteBufferPartition
         @Override
         public Partition getPartition()
         {
-            return ByteBufferPartition.this;
+            return ByteBufferPooledPartition.this;
         }
 
         private synchronized PartitionSlice lock()

@@ -17,4 +17,6 @@ public interface Partition
 
     void close();
 
+    boolean isPooled();
+
 }
