@@ -1,9 +1,17 @@
 package com.github.directringcache.impl;
 
+import java.lang.reflect.Method;
+import java.nio.ByteBuffer;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.github.directringcache.PartitionBuffer;
 
 public final class BufferUtils
 {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger( BufferUtils.class );
 
     private static final long KILOBYTE_BYTE_SIZE = 1024;
 
@@ -13,8 +21,53 @@ public final class BufferUtils
 
     private static final long TERABYTE_BYTE_SIZE = GIGABYTE_BYTE_SIZE * 1024;
 
+    private static final Method DIRECT_BYTE_BUFFER_CLEAN;
+
+    private static final Method DIRECT_BYTE_BUFFER_CLEANER;
+
+    private static final boolean CLEANER_AVAILABLE;
+
+    static
+    {
+        Method directByteBufferClean = null;
+        Method directByteBufferCleaner = null;
+        try
+        {
+            Class<?> clazz = Class.forName( "java.nio.DirectByteBuffer" );
+            directByteBufferCleaner = clazz.getDeclaredMethod( "cleaner" );
+
+            clazz = Class.forName( "sun.misc.Cleaner" );
+            directByteBufferClean = clazz.getDeclaredMethod( "clean" );
+        }
+        catch ( Exception e )
+        {
+            // Ignore since DirectByteBuffer or clean() method aren't available on this JVM
+        }
+        DIRECT_BYTE_BUFFER_CLEAN = directByteBufferClean;
+        DIRECT_BYTE_BUFFER_CLEANER = directByteBufferCleaner;
+        CLEANER_AVAILABLE = DIRECT_BYTE_BUFFER_CLEAN != null && DIRECT_BYTE_BUFFER_CLEANER != null;
+    }
+
     private BufferUtils()
     {
+    }
+
+    static void cleanByteBuffer( ByteBuffer byteBuffer )
+    {
+        if ( !byteBuffer.isDirect() || CLEANER_AVAILABLE )
+        {
+            return;
+        }
+
+        try
+        {
+            Object cleaner = DIRECT_BYTE_BUFFER_CLEANER.invoke( byteBuffer );
+            DIRECT_BYTE_BUFFER_CLEAN.invoke( cleaner );
+        }
+        catch ( Exception e )
+        {
+            LOGGER.debug( "DirectByteBuffer could not be cleaned", e );
+        }
     }
 
     static void putShort( short value, PartitionBuffer partitionBuffer, boolean bigEndian )
