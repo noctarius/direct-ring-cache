@@ -1,5 +1,7 @@
 package com.github.directringcache.impl;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,6 +15,8 @@ class UnsafePartitionSlice
     private static final Logger LOGGER = LoggerFactory.getLogger( UnsafePartitionSlice.class );
 
     private final sun.misc.Unsafe unsafe = BufferUtils.getUnsafe();
+
+    private final AtomicBoolean freed = new AtomicBoolean( false );
 
     private final Partition partition;
 
@@ -71,9 +75,9 @@ class UnsafePartitionSlice
 
         if ( LOGGER.isTraceEnabled() )
         {
-            LOGGER.trace( "partition=" + partition.getPartitionIndex() + ", sliceIndex=" + index
-                + ", writerIndex=" + writerIndex + ", offset=" + offset + ", arrayLength=" + array.length
-                + ", writeLength=" + length + ", writerAddress=" + ( memoryPointer + writerIndex ) );
+            LOGGER.trace( "partition=" + partition.getPartitionIndex() + ", sliceIndex=" + index + ", writerIndex="
+                + writerIndex + ", offset=" + offset + ", arrayLength=" + array.length + ", writeLength=" + length
+                + ", writerAddress=" + ( memoryPointer + writerIndex ) );
         }
         long memOffset = memoryPointer + readerIndex;
         unsafe.copyMemory( array, BufferUtils.BYTE_ARRAY_OFFSET + offset, null, memOffset, length );
@@ -102,9 +106,9 @@ class UnsafePartitionSlice
 
         if ( LOGGER.isTraceEnabled() )
         {
-            LOGGER.trace( "partition=" + partition.getPartitionIndex() + ", sliceIndex=" + index
-                + ", readerIndex=" + readerIndex + ", offset=" + offset + ", arrayLength=" + array.length
-                + ", readLength=" + length + ", readerAddress=" + ( memoryPointer + readerIndex ) );
+            LOGGER.trace( "partition=" + partition.getPartitionIndex() + ", sliceIndex=" + index + ", readerIndex="
+                + readerIndex + ", offset=" + offset + ", arrayLength=" + array.length + ", readLength=" + length
+                + ", readerAddress=" + ( memoryPointer + readerIndex ) );
         }
         long memOffset = memoryPointer + readerIndex;
         unsafe.copyMemory( null, memOffset, array, BufferUtils.BYTE_ARRAY_OFFSET + offset, length );
@@ -174,7 +178,12 @@ class UnsafePartitionSlice
     @Override
     protected void free()
     {
+        if ( freed.compareAndSet( false, true ) )
+        {
+            return;
+        }
         unsafe.setMemory( memoryPointer, sliceByteSize, (byte) 0 );
         unsafe.freeMemory( memoryPointer );
     }
+
 }

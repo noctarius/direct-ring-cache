@@ -1,12 +1,15 @@
 package com.github.directringcache.impl;
 
 import java.nio.ByteBuffer;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.github.directringcache.spi.Partition;
 
 class ByteBufferPartitionSlice
     extends AbstractPartitionSlice
 {
+
+    private final AtomicBoolean freed = new AtomicBoolean( false );
 
     private final ByteBuffer byteBuffer;
 
@@ -130,6 +133,11 @@ class ByteBufferPartitionSlice
     @Override
     protected void free()
     {
+        if ( freed.compareAndSet( false, true ) )
+        {
+            return;
+        }
         BufferUtils.cleanByteBuffer( byteBuffer );
     }
+
 }
