@@ -22,9 +22,20 @@ public final class PartitionBufferBuilder
         this.partitionSliceSelector = partitionSliceSelector;
     }
 
+    public PartitionBufferBuilder( PartitionStrategy partitionStrategy, PartitionSliceSelector partitionSliceSelector )
+    {
+        this.partitionFactory = partitionStrategy.getPartitionFactory();
+        this.partitionSliceSelector = partitionSliceSelector;
+    }
+
     public PartitionBufferBuilder( PartitionFactory partitionFactory )
     {
         this( partitionFactory, new ThreadLocalPartitionSliceSelector() );
+    }
+
+    public PartitionBufferBuilder( PartitionStrategy partitionStrategy )
+    {
+        this( partitionStrategy.getPartitionFactory(), new ThreadLocalPartitionSliceSelector() );
     }
 
     public PartitionBufferBuilder( PartitionSliceSelector partitionSliceSelector )
