@@ -18,7 +18,7 @@ public class MultiThreadingTestCase
     {
         final int processorCount = Runtime.getRuntime().availableProcessors();
 
-        final PartitionFactory partitionFactory = UnsafePooledPartition.UNSAFE_POOLED_PARTITION_FACTORY;
+        final PartitionFactory partitionFactory = UnsafePooledPartition.UNSAFE_PARTITION_FACTORY;
         final PartitionSliceSelector partitionSliceSelector = new ProcessorLocalPartitionSliceSelector();
 
         final PartitionBufferBuilder builder = new PartitionBufferBuilder( partitionFactory, partitionSliceSelector );

@@ -43,9 +43,11 @@ public final class BufferUtils
         {
             Class<?> clazz = Class.forName( "java.nio.DirectByteBuffer" );
             directByteBufferCleaner = clazz.getDeclaredMethod( "cleaner" );
+            directByteBufferCleaner.setAccessible( true );
 
             clazz = Class.forName( "sun.misc.Cleaner" );
             directByteBufferClean = clazz.getDeclaredMethod( "clean" );
+            directByteBufferClean.setAccessible( true );
         }
         catch ( Exception e )
         {
@@ -88,7 +90,7 @@ public final class BufferUtils
 
     static void cleanByteBuffer( ByteBuffer byteBuffer )
     {
-        if ( !byteBuffer.isDirect() || CLEANER_AVAILABLE )
+        if ( !byteBuffer.isDirect() || !CLEANER_AVAILABLE )
         {
             return;
         }
