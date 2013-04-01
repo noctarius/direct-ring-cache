@@ -1,15 +1,13 @@
 package com.github.directringcache.impl;
 
 import java.nio.ByteBuffer;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.github.directringcache.spi.Partition;
 import com.github.directringcache.spi.PartitionFactory;
-import com.github.directringcache.spi.PartitionSlice;
 import com.github.directringcache.spi.PartitionSliceSelector;
 
 public class ByteBufferPooledPartition
-    implements Partition
+    extends AbstractPartition
 {
 
     public static final PartitionFactory DIRECT_BYTEBUFFER_PARTITION_FACTORY = new PartitionFactory()
@@ -34,23 +32,13 @@ public class ByteBufferPooledPartition
         }
     };
 
-    private final PartitionSliceSelector partitionSliceSelector;
-
-    private final int partitionIndex;
-
     private final ByteBufferPartitionSlice[] slices;
-
-    private final int sliceByteSize;
-
-    private final FixedLengthBitSet usedSlices;
 
     private ByteBufferPooledPartition( int partitionIndex, int slices, int sliceByteSize, boolean directMemory,
                                        PartitionSliceSelector partitionSliceSelector )
     {
-        this.partitionSliceSelector = partitionSliceSelector;
-        this.partitionIndex = partitionIndex;
-        this.sliceByteSize = sliceByteSize;
-        this.usedSlices = new FixedLengthBitSet( slices );
+        super( partitionIndex, slices, sliceByteSize, partitionSliceSelector, true );
+
         this.slices = new ByteBufferPartitionSlice[slices];
 
         for ( int i = 0; i < slices; i++ )
@@ -63,112 +51,16 @@ public class ByteBufferPooledPartition
     }
 
     @Override
-    public boolean isPooled()
+    protected AbstractPartitionSlice get( int index )
     {
-        return true;
-    }
-
-    @Override
-    public int available()
-    {
-        return usedSlices.size() - usedSlices.cardinality();
-    }
-
-    @Override
-    public int used()
-    {
-        return usedSlices.cardinality();
-    }
-
-    @Override
-    public int getSliceByteSize()
-    {
-        return sliceByteSize;
-    }
-
-    @Override
-    public PartitionSlice get()
-    {
-        int retry = 0;
-        while ( retry++ < 5 )
-        {
-            int possibleMatch = nextSlice();
-            if ( possibleMatch == -1 )
-            {
-                return null;
-            }
-
-            synchronized ( usedSlices )
-            {
-                if ( !usedSlices.get( possibleMatch ) )
-                {
-                    if ( usedSlices.testAndSet( possibleMatch ) )
-                    {
-                        return slices[possibleMatch].lock();
-                    }
-                }
-            }
-        }
-        return null;
-    }
-
-    @Override
-    public int getSliceCount()
-    {
-        return usedSlices.size();
-    }
-
-    @Override
-    public void free( PartitionSlice slice )
-    {
-        if ( !( slice instanceof ByteBufferPartitionSlice ) )
-        {
-            throw new IllegalArgumentException( "Given slice cannot be handled by this PartitionBufferPool" );
-        }
-        ByteBufferPartitionSlice partitionSlice = (ByteBufferPartitionSlice) slice;
-        if ( partitionSlice.getPartition() != this )
-        {
-            throw new IllegalArgumentException( "Given slice cannot be handled by this PartitionBufferPool" );
-        }
-        synchronized ( usedSlices )
-        {
-            usedSlices.clear( partitionSlice.index );
-            partitionSliceSelector.freePartitionSlice( this, partitionIndex, partitionSlice.unlock() );
-        }
-        slice.clear();
-    }
-
-    @Override
-    public void close()
-    {
-        synchronized ( usedSlices )
-        {
-            for ( int i = 0; i < slices.length; i++ )
-            {
-                partitionSliceSelector.freePartitionSlice( this, partitionIndex, slices[i] );
-            }
-        }
-    }
-
-    private int nextSlice()
-    {
-        if ( usedSlices.isEmpty() )
-        {
-            return -1;
-        }
-
-        return usedSlices.firstNotSet();
+        return slices[index];
     }
 
     public class ByteBufferPartitionSlice
-        implements PartitionSlice
+        extends AbstractPartitionSlice
     {
 
         private final ByteBuffer byteBuffer;
-
-        private final int index;
-
-        private final AtomicBoolean lock = new AtomicBoolean( false );
 
         private int writerIndex;
 
@@ -176,8 +68,9 @@ public class ByteBufferPooledPartition
 
         private ByteBufferPartitionSlice( ByteBuffer byteBuffer, int index )
         {
+            super( index );
+
             this.byteBuffer = byteBuffer;
-            this.index = index;
         }
 
         @Override
@@ -280,22 +173,10 @@ public class ByteBufferPooledPartition
             return ByteBufferPooledPartition.this;
         }
 
-        private synchronized PartitionSlice lock()
+        @Override
+        protected void free()
         {
-            if ( !lock.compareAndSet( false, true ) )
-            {
-                throw new IllegalStateException( "PartitionSlice already locked" );
-            }
-            return this;
-        }
-
-        private synchronized PartitionSlice unlock()
-        {
-            if ( !lock.compareAndSet( true, false ) )
-            {
-                throw new IllegalStateException( "PartitionSlice not locked" );
-            }
-            return this;
+            // TODO explicitly free if DirectByteBuffer
         }
     }
 

@@ -1,20 +1,17 @@
 package com.github.directringcache.impl;
 
 import java.lang.reflect.Field;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.github.directringcache.spi.Partition;
 import com.github.directringcache.spi.PartitionFactory;
-import com.github.directringcache.spi.PartitionSlice;
 import com.github.directringcache.spi.PartitionSliceSelector;
 
 @SuppressWarnings( "restriction" )
 public class UnsafePooledPartition
-    implements Partition
+    extends AbstractPartition
 {
 
     public static final PartitionFactory UNSAFE_POOLED_PARTITION_FACTORY = new PartitionFactory()
@@ -69,27 +66,15 @@ public class UnsafePooledPartition
 
     private final sun.misc.Unsafe unsafe = UnsafeUtil.getUnsafe();
 
-    private final AtomicBoolean closed = new AtomicBoolean( false );
-
-    private final PartitionSliceSelector partitionSliceSelector;
-
-    private final int partitionIndex;
-
     private final long allocatedLength;
 
     private final UnsafePartitionSlice[] slices;
 
-    private final int sliceByteSize;
-
-    private final FixedLengthBitSet usedSlices;
-
     private UnsafePooledPartition( int partitionIndex, int slices, int sliceByteSize,
                                    PartitionSliceSelector partitionSliceSelector )
     {
-        this.partitionSliceSelector = partitionSliceSelector;
-        this.partitionIndex = partitionIndex;
-        this.sliceByteSize = sliceByteSize;
-        this.usedSlices = new FixedLengthBitSet( slices );
+        super( partitionIndex, slices, sliceByteSize, partitionSliceSelector, true );
+
         this.slices = new UnsafePartitionSlice[slices];
         this.allocatedLength = sliceByteSize * slices;
 
@@ -112,132 +97,27 @@ public class UnsafePooledPartition
     }
 
     @Override
-    public boolean isPooled()
+    protected AbstractPartitionSlice get( int index )
     {
-        return true;
-    }
-
-    @Override
-    public int available()
-    {
-        return usedSlices.size() - usedSlices.cardinality();
-    }
-
-    @Override
-    public int used()
-    {
-        return usedSlices.cardinality();
-    }
-
-    @Override
-    public int getSliceByteSize()
-    {
-        return sliceByteSize;
-    }
-
-    @Override
-    public PartitionSlice get()
-    {
-        int retry = 0;
-        while ( retry++ < 5 )
-        {
-            int possibleMatch = nextSlice();
-            if ( possibleMatch == -1 )
-            {
-                return null;
-            }
-
-            synchronized ( usedSlices )
-            {
-                if ( !usedSlices.get( possibleMatch ) )
-                {
-                    if ( usedSlices.testAndSet( possibleMatch ) )
-                    {
-                        return slices[possibleMatch].lock();
-                    }
-                }
-            }
-        }
-        return null;
-    }
-
-    @Override
-    public void free( PartitionSlice slice )
-    {
-        if ( !( slice instanceof UnsafePartitionSlice ) )
-        {
-            throw new IllegalArgumentException( "Given slice cannot be handled by this PartitionBufferPool" );
-        }
-        UnsafePartitionSlice partitionSlice = (UnsafePartitionSlice) slice;
-        if ( partitionSlice.getPartition() != this )
-        {
-            throw new IllegalArgumentException( "Given slice cannot be handled by this PartitionBufferPool" );
-        }
-        synchronized ( usedSlices )
-        {
-            usedSlices.clear( partitionSlice.index );
-            partitionSliceSelector.freePartitionSlice( this, partitionIndex, partitionSlice.unlock() );
-            slice.clear();
-        }
-    }
-
-    @Override
-    public int getSliceCount()
-    {
-        return usedSlices.size();
-    }
-
-    @Override
-    public void close()
-    {
-        if ( !closed.compareAndSet( false, true ) )
-        {
-            return;
-        }
-
-        synchronized ( usedSlices )
-        {
-            for ( int i = 0; i < slices.length; i++ )
-            {
-                partitionSliceSelector.freePartitionSlice( this, partitionIndex, slices[i] );
-                slices[i].free();
-            }
-        }
-    }
-
-    private int nextSlice()
-    {
-        if ( usedSlices.isEmpty() )
-        {
-            return -1;
-        }
-
-        return usedSlices.firstNotSet();
+        return slices[index];
     }
 
     public class UnsafePartitionSlice
-        implements PartitionSlice
+        extends AbstractPartitionSlice
     {
-
-        private final int index;
 
         private final long memoryPointer;
 
         private final long lastMemoryPointer;
 
-        private final AtomicBoolean lock = new AtomicBoolean( false );
-
         private volatile int writerIndex;
 
         private volatile int readerIndex;
 
-        private final AtomicInteger aquired = new AtomicInteger( 0 );
-
-        private final AtomicInteger freed = new AtomicInteger( 0 );
-
         private UnsafePartitionSlice( int index )
         {
-            this.index = index;
+            super( index );
+
             this.memoryPointer = unsafe.allocateMemory( sliceByteSize );
             this.lastMemoryPointer = memoryPointer + sliceByteSize - 1;
             clear();
@@ -367,31 +247,6 @@ public class UnsafePooledPartition
             return UnsafePooledPartition.this;
         }
 
-        private synchronized PartitionSlice lock()
-        {
-            if ( !lock.compareAndSet( false, true ) )
-            {
-                throw new IllegalStateException( "PartitionSlice already locked" );
-            }
-            if ( aquired.get() != freed.get() )
-            {
-                throw new IllegalStateException( "Not all aquires (" + aquired.get() + ") are freed (" + freed.get()
-                    + ")" );
-            }
-            aquired.incrementAndGet();
-            return this;
-        }
-
-        private synchronized PartitionSlice unlock()
-        {
-            if ( !lock.compareAndSet( true, false ) )
-            {
-                throw new IllegalStateException( "PartitionSlice not locked" );
-            }
-            freed.incrementAndGet();
-            return this;
-        }
-
         private long readerAddress()
         {
             return memoryPointer + readerIndex;
@@ -402,7 +257,8 @@ public class UnsafePooledPartition
             return memoryPointer + writerIndex;
         }
 
-        private void free()
+        @Override
+        protected void free()
         {
             unsafe.setMemory( memoryPointer, sliceByteSize, (byte) 0 );
             unsafe.freeMemory( memoryPointer );

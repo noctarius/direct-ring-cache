@@ -19,4 +19,6 @@ public interface Partition
 
     boolean isPooled();
 
+    boolean isClosed();
+
 }
