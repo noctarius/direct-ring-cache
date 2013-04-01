@@ -7,7 +7,7 @@ import com.github.directringcache.spi.PartitionFactory;
 import com.github.directringcache.spi.PartitionSliceSelector;
 
 public class ByteBufferPooledPartition
-    extends AbstractPartition
+    extends AbstractPooledPartition
 {
 
     public static final PartitionFactory DIRECT_BYTEBUFFER_PARTITION_FACTORY = new PartitionFactory()

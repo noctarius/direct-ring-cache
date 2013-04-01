@@ -11,7 +11,7 @@ import com.github.directringcache.spi.PartitionSliceSelector;
 
 @SuppressWarnings( "restriction" )
 public class UnsafePooledPartition
-    extends AbstractPartition
+    extends AbstractPooledPartition
 {
 
     public static final PartitionFactory UNSAFE_POOLED_PARTITION_FACTORY = new PartitionFactory()
