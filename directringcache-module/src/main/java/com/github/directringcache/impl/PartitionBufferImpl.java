@@ -18,9 +18,9 @@ class PartitionBufferImpl
 
     private ByteOrder byteOrder;
 
-    private long writerIndex = 0;
+    private volatile long writerIndex = 0;
 
-    private long readerIndex = 0;
+    private volatile long readerIndex = 0;
 
     public PartitionBufferImpl( PartitionBufferPoolImpl partitionBufferPool, ByteOrder byteOrder )
     {
