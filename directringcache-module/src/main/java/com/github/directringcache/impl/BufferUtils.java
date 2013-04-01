@@ -1,5 +1,6 @@
 package com.github.directringcache.impl;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
 
@@ -8,6 +9,7 @@ import org.slf4j.LoggerFactory;
 
 import com.github.directringcache.PartitionBuffer;
 
+@SuppressWarnings( "restriction" )
 public final class BufferUtils
 {
 
@@ -26,6 +28,12 @@ public final class BufferUtils
     private static final Method DIRECT_BYTE_BUFFER_CLEANER;
 
     private static final boolean CLEANER_AVAILABLE;
+
+    private static final sun.misc.Unsafe UNSAFE;
+
+    private static final boolean UNSAFE_AVAILABLE;
+
+    static final int BYTE_ARRAY_OFFSET;
 
     static
     {
@@ -46,10 +54,36 @@ public final class BufferUtils
         DIRECT_BYTE_BUFFER_CLEAN = directByteBufferClean;
         DIRECT_BYTE_BUFFER_CLEANER = directByteBufferCleaner;
         CLEANER_AVAILABLE = DIRECT_BYTE_BUFFER_CLEAN != null && DIRECT_BYTE_BUFFER_CLEANER != null;
+
+        sun.misc.Unsafe unsafe = null;
+        try
+        {
+            Field unsafeField = sun.misc.Unsafe.class.getDeclaredField( "theUnsafe" );
+            unsafeField.setAccessible( true );
+            unsafe = (sun.misc.Unsafe) unsafeField.get( null );
+        }
+        catch ( Exception e )
+        {
+            // Ignore thins sun.misc.Unsafe doesn't seem to exists on this JVM
+        }
+
+        UNSAFE = unsafe;
+        UNSAFE_AVAILABLE = UNSAFE != null;
+        BYTE_ARRAY_OFFSET = UNSAFE_AVAILABLE ? UNSAFE.arrayBaseOffset( byte[].class ) : -1;
     }
 
     private BufferUtils()
     {
+    }
+
+    static boolean isUnsafeAvailable()
+    {
+        return UNSAFE_AVAILABLE;
+    }
+
+    static sun.misc.Unsafe getUnsafe()
+    {
+        return UNSAFE;
     }
 
     static void cleanByteBuffer( ByteBuffer byteBuffer )

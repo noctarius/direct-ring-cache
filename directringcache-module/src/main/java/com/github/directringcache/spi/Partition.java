@@ -11,6 +11,8 @@ public interface Partition
 
     int getSliceByteSize();
 
+    int getPartitionIndex();
+
     PartitionSlice get();
 
     void free( PartitionSlice slice );

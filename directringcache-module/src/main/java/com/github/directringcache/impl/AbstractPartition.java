@@ -35,6 +35,12 @@ public abstract class AbstractPartition
     }
 
     @Override
+    public int getPartitionIndex()
+    {
+        return partitionIndex;
+    }
+
+    @Override
     public boolean isPooled()
     {
         return pooled;
