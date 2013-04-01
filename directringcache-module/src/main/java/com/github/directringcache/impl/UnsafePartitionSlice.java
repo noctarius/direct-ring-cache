@@ -10,7 +10,7 @@ class UnsafePartitionSlice
     extends AbstractPartitionSlice
 {
 
-    private static final Logger SLICE_LOGGER = LoggerFactory.getLogger( UnsafePartitionSlice.class );
+    private static final Logger LOGGER = LoggerFactory.getLogger( UnsafePartitionSlice.class );
 
     private final sun.misc.Unsafe unsafe = BufferUtils.getUnsafe();
 
@@ -54,9 +54,9 @@ class UnsafePartitionSlice
     @Override
     public void put( int position, byte value )
     {
-        if ( SLICE_LOGGER.isTraceEnabled() )
+        if ( LOGGER.isTraceEnabled() )
         {
-            SLICE_LOGGER.trace( "writeToOffset=" + ( memoryPointer + position ) );
+            LOGGER.trace( "writeToOffset=" + ( memoryPointer + position ) );
         }
         unsafe.putByte( memoryPointer + position, value );
     }
@@ -69,9 +69,9 @@ class UnsafePartitionSlice
             throw new IndexOutOfBoundsException( "Writing the array exhausted the available size" );
         }
 
-        if ( SLICE_LOGGER.isTraceEnabled() )
+        if ( LOGGER.isTraceEnabled() )
         {
-            SLICE_LOGGER.trace( "partition=" + partition.getPartitionIndex() + ", sliceIndex=" + index
+            LOGGER.trace( "partition=" + partition.getPartitionIndex() + ", sliceIndex=" + index
                 + ", writerIndex=" + writerIndex + ", offset=" + offset + ", arrayLength=" + array.length
                 + ", writeLength=" + length + ", writerAddress=" + ( memoryPointer + writerIndex ) );
         }
@@ -100,9 +100,9 @@ class UnsafePartitionSlice
             throw new IndexOutOfBoundsException( "Reading the array exhausted the available size" );
         }
 
-        if ( SLICE_LOGGER.isTraceEnabled() )
+        if ( LOGGER.isTraceEnabled() )
         {
-            SLICE_LOGGER.trace( "partition=" + partition.getPartitionIndex() + ", sliceIndex=" + index
+            LOGGER.trace( "partition=" + partition.getPartitionIndex() + ", sliceIndex=" + index
                 + ", readerIndex=" + readerIndex + ", offset=" + offset + ", arrayLength=" + array.length
                 + ", readLength=" + length + ", readerAddress=" + ( memoryPointer + readerIndex ) );
         }
