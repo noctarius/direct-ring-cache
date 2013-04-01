@@ -11,7 +11,7 @@ public class UnsafePooledPartition
     extends AbstractPooledPartition
 {
 
-    public static final PartitionFactory UNSAFE_POOLED_PARTITION_FACTORY = new PartitionFactory()
+    public static final PartitionFactory UNSAFE_PARTITION_FACTORY = new PartitionFactory()
     {
 
         @Override
