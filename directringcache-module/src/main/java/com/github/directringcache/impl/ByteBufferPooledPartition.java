@@ -44,8 +44,7 @@ public class ByteBufferPooledPartition
         for ( int i = 0; i < slices; i++ )
         {
             ByteBuffer buffer =
-                directMemory ? ByteBuffer.allocateDirect( sliceByteSize * slices )
-                                : ByteBuffer.allocate( sliceByteSize );
+                directMemory ? ByteBuffer.allocateDirect( sliceByteSize ) : ByteBuffer.allocate( sliceByteSize );
             this.slices[i] = new ByteBufferPartitionSlice( buffer, i, this, sliceByteSize );
         }
     }
