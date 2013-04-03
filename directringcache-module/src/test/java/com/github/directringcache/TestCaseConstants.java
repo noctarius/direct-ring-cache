@@ -27,6 +27,22 @@ public class TestCaseConstants
 
     public static final Collection<Object[]> EXECUTION_PARAMETER_MUTATIONS = buildExecutionParameterMutations();
 
+    public static String buildPartitionFactoryName( Object partitionFactory )
+    {
+        String partitionFactoryName = partitionFactory.getClass().getEnclosingClass().getSimpleName();
+        if ( partitionFactory == ByteBufferPooledPartition.DIRECT_BYTEBUFFER_PARTITION_FACTORY
+            || partitionFactory == ByteBufferUnpooledPartition.DIRECT_BYTEBUFFER_PARTITION_FACTORY )
+        {
+            partitionFactoryName += "{Direct}";
+        }
+        else if ( partitionFactory == ByteBufferPooledPartition.HEAP_BYTEBUFFER_PARTITION_FACTORY
+            || partitionFactory == ByteBufferUnpooledPartition.HEAP_BYTEBUFFER_PARTITION_FACTORY )
+        {
+            partitionFactoryName += "{Heap}";
+        }
+        return partitionFactoryName;
+    }
+
     private static List<Object[]> buildExecutionParameterMutations()
     {
         List<Object[]> mutations = new LinkedList<Object[]>();
@@ -35,17 +51,7 @@ public class TestCaseConstants
         {
             for ( Object partitionSliceSelector : PARTITION_SLICE_SELECTORS )
             {
-                String partitionFactoryName = partitionFactory.getClass().getEnclosingClass().getSimpleName();
-                if ( partitionFactory == ByteBufferPooledPartition.DIRECT_BYTEBUFFER_PARTITION_FACTORY
-                    || partitionFactory == ByteBufferUnpooledPartition.DIRECT_BYTEBUFFER_PARTITION_FACTORY )
-                {
-                    partitionFactoryName += "{Direct}";
-                }
-                else if ( partitionFactory == ByteBufferPooledPartition.HEAP_BYTEBUFFER_PARTITION_FACTORY
-                    || partitionFactory == ByteBufferUnpooledPartition.HEAP_BYTEBUFFER_PARTITION_FACTORY )
-                {
-                    partitionFactoryName += "{Heap}";
-                }
+                String partitionFactoryName = buildPartitionFactoryName( partitionFactory );
                 mutations.add( new Object[] { partitionFactoryName,
                     ( (Class<?>) partitionSliceSelector ).getSimpleName(), partitionFactory, partitionSliceSelector } );
             }
