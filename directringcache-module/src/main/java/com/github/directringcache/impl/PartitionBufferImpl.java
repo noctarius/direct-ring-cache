@@ -14,6 +14,8 @@ class PartitionBufferImpl
 
     private final PartitionBufferPoolImpl partitionBufferPool;
 
+    private final int positionMask;
+
     private volatile PartitionSlice[] slices = new PartitionSlice[0];
 
     private ByteOrder byteOrder;
@@ -25,6 +27,7 @@ class PartitionBufferImpl
     public PartitionBufferImpl( PartitionBufferPoolImpl partitionBufferPool, ByteOrder byteOrder )
     {
         this.partitionBufferPool = partitionBufferPool;
+        this.positionMask = partitionBufferPool.getSliceByteSize() - 1;
         this.byteOrder = byteOrder;
         resize( 1 );
     }
@@ -237,7 +240,7 @@ class PartitionBufferImpl
     @Override
     public void writePartitionBuffer( ReadablePartitionBuffer partitionBuffer )
     {
-        writePartitionBuffer( partitionBuffer, 0, -1 );// TODO
+        writePartitionBuffer( partitionBuffer, 0, partitionBuffer.readableSize() - readerIndex );
     }
 
     @Override
@@ -373,8 +376,7 @@ class PartitionBufferImpl
             resize( sliceIndex + 1 );
         }
 
-        int relativePosition = (int) ( sliceIndex == 0 ? position : position % sliceByteSize() );
-        slices[sliceIndex].put( relativePosition, value );
+        slices[sliceIndex].put( relativePosition( sliceIndex, position ), value );
     }
 
     private byte read()
@@ -389,7 +391,7 @@ class PartitionBufferImpl
             throw new IndexOutOfBoundsException( "Position " + position + " is not readable" );
         }
         int sliceIndex = sliceIndex( position );
-        return slices[sliceIndex].read( (int) ( sliceIndex == 0 ? position : position % sliceByteSize() ) );
+        return slices[sliceIndex].read( relativePosition( sliceIndex, position ) );
     }
 
     private int sliceIndex( long position )
@@ -413,6 +415,18 @@ class PartitionBufferImpl
         {
             slices = temp;
         }
+    }
+
+    private int relativePosition( int sliceIndex, long position )
+    {
+        if ( sliceIndex == 0 )
+        {
+            return (int) position;
+        }
+
+        int sliceByteSize = sliceByteSize();
+        long substract = sliceByteSize * sliceIndex;
+        return ( (int) ( position - substract ) ) & positionMask;
     }
 
 }
